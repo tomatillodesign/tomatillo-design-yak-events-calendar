@@ -26,6 +26,18 @@ if ( ! empty( $block['align'] ) ) {
 }
 
 
+$admin_cells = null;
+if ( is_admin() && wp_doing_ajax() ) {
+	$admin_cells .= '<div class="yak-calendar-grid">';
+	for ( $i = 0; $i < 42; $i++ ) {
+		$admin_cells .= '<div></div>';
+	}
+	$admin_cells .= '</div>';
+}
 
-$block_to_publish = '<div class="' . $class_name . '">' . $block_to_publish . '<div id="clb-events-calendar-view-root"></div></div>';
+
+$block_to_publish = '<div class="' . $class_name . '">' . $block_to_publish . '<div id="clb-events-calendar-view-root">' . $admin_cells . '</div></div>';
 echo $block_to_publish;
+
+
+

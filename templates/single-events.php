@@ -56,6 +56,20 @@ function clb_show_event_info() {
 
 
 
+add_action('genesis_entry_content', 'clb_inject_events_featured_image_floater', 8);
+function clb_inject_events_featured_image_floater() {
+
+    $post_id = get_the_ID();
+    $featured_image = get_the_post_thumbnail($post_id, 'full');
+
+    if( !$featured_image ) { return; }
+
+    echo '<div class="clb-yak-events-featured-img-wrapper">' . $featured_image . '</div>';
+
+}
+
+
+
 // action button at bottom of entry content
 // single resource metabox
 add_action('genesis_entry_content', 'clb_publish_action_btn', 12);

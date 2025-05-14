@@ -2,21 +2,28 @@
 /* --- Single Events Template View ---- */
 
 .single-events .clb-event-metabox-wrapper {
-    padding: 30px;
-    margin-bottom: 30px;
-    background: var(--ironwood-medium-gray);
-    border-radius: var(--ironwood-border-radius);
+    margin-top: 2rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    background: var(--yak-color-muted);
+    border-radius: var(--yak-radius);
 }
+
+.single-events .clb-yak-events-featured-img-wrapper {
+    float: right;
+    max-width: 50%;
+}
+
 
 
 
 /* ---- List View ---- */
 
 .clb-events-wrapper.clb-event-view-list .clb-single-event-wrapper {
-    padding: 20px;
-    margin-bottom: 20px;
-    background: var(--ironwood-medium-gray);
-    border-radius: var(--ironwood-border-radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--yak-color-muted);
+    border-radius: var(--yak-radius);
 }
 
 
@@ -24,12 +31,7 @@
 
     /* ---- Custom Calendar Month View Work ---- */
 
-.clb-events-calendar-view-root {
-    margin-top: 60px;
-    margin-bottom: 60px;
-}
-
-.clb-events-calendar-view-root h2 {
+.entry-content #clb-events-calendar-view-root h2 {
     margin: 0;
 }
 
@@ -47,13 +49,13 @@
     min-height: fit-content;
     padding: 4px;
     text-align: center;
-    background: var(--dhm-navy);
-    color: var(--dhm-white);
+    background: var(--yak-color-primary);
+    color: var(--yak-color-white);
     font-weight: 700;
 }
 
 .clb-calendar-day-wrapper {
-    background: var(--dhm-light-beige);
+    background: var(--yak-color-muted);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -69,8 +71,8 @@
 }
 
 .clb-calendar-action-btn {
-    background: var(--dhm-white);
-    color: var(--dhm-navy);
+    background: transparent;
+    color: var(--yak-color-primary);
 }
 
 .clb-calendar-date-wrapper {
@@ -79,41 +81,55 @@
 }
 
 .clb-calendar-today {
-    background: var(--dhm-white);
+    background: var(--yak-color-white);
 }
 
 .clb-calendar-today .clb-calendar-date-wrapper {
-    color: var(--dhm-chalice-red);
+    color: var(--yak-color-primary);
 }
 
 .clb-calendar-today-btn {
     padding: 6px 10px;
-    border: 1px solid var(--dhm-navy);
-    font-size: var(--ironwood-font-size-sm);
+    border: 1px solid var(--yak-color-primary);
+    font-size: var(--yak-font-xs);
     opacity: .6;
 }
+
+[data-month-status="present"] #clb-calendar-action-today-next,
+[data-month-status="present"] #clb-calendar-action-today-prev {
+	visibility: hidden;
+}
+
+[data-month-status="future"] #clb-calendar-action-today-next {
+	visibility: hidden;
+}
+
+[data-month-status="past"] #clb-calendar-action-today-prev {
+	visibility: hidden;
+}
+
 
 .clb-calendar-today-btn:hover {
     opacity: 1;
 }
 
 .clb-calendar-single-event-wrapper {
-    font-size: var(--ironwood-font-size-sm);
+    font-size: var(--yak-font-size-sm);
     letter-spacing: -1px;
     line-height: 1.2;
-    border: 1px solid var(--dhm-black);
+    border: 1px solid var(--yak-color-black);
     padding: 4px;
     margin: 4px;
 }
 
 .clb-calendar-single-event-wrapper a {
-    color: var(--dhm-black);
+    color: var(--yak-color-black);
     text-decoration: none;
 }
 
 .clb-calendar-single-event-wrapper a:hover {
     cursor: pointer;
-    color: var(--dhm-chalice-red);
+    color: var(--yak-color-primary);
 }
 
 .clb-calendar-next-actions-wrapper,
@@ -144,7 +160,21 @@
     opacity: 1;
 }
 
+.clb-events-wrapper .clb-single-event-wrapper h3 {
+    margin-top: 0;
+}
+
 @media screen and (min-width: 960px) {
+
+    .clb-events-wrapper .clb-single-event-wrapper.clb-has-featured-image {
+        display: flex;
+        flex-direction: row-reverse;
+        gap: 1rem;
+    }
+
+    .clb-events-wrapper .clb-single-event-wrapper.clb-has-featured-image .clb-featured-img-wrapper {
+        max-width: 20rem;
+    }
 
     .clb-3-col-grid {
         display: grid;
@@ -189,9 +219,41 @@
     }
 
     .clb-calendar-month-title-wrapper h2 {
-        font-size: var(--ironwood-font-size-lg);
+        font-size: var(--yak-font-size-lg);
         text-align: center;
     }
 
+    .single-events .clb-yak-events-featured-img-wrapper {
+        float: none;
+        max-width: 100%;
+        margin-bottom: 2rem;
+    }
+    
+
 }
 
+
+
+.wp-block[data-type="acf/events-calendar"] #clb-events-calendar-view-root .yak-calendar-grid {
+	min-height: 600px;
+	width: 100%;
+	background: #f5f5f5;
+	border: 2px dashed #ccc;
+	box-sizing: border-box;
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	grid-template-rows: repeat(6, 1fr);
+	gap: 1px;
+	padding: 10px;
+}
+
+.wp-block[data-type="acf/events-calendar"]::before {
+	content: "";
+	display: none;
+}
+
+.wp-block[data-type="acf/events-calendar"] #clb-events-calendar-view-root .yak-calendar-grid > div {
+	background: #fff;
+	border: 1px solid #ccc;
+	min-height: 80px;
+}
