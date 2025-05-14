@@ -1,0 +1,23 @@
+
+/* --- Single Events Template View ---- */
+
+.single-events .clb-event-metabox-wrapper {
+    padding: 30px;
+    margin-bottom: 30px;
+    background: var(--ironwood-medium-gray);
+    border-radius: var(--ironwood-border-radius);
+}
+
+
+
+/* ---- List View ---- */
+
+.clb-events-wrapper.clb-event-view-list .clb-single-event-wrapper {
+    padding: 20px;
+    margin-bottom: 20px;
+    background: var(--ironwood-medium-gray);
+    border-radius: var(--ironwood-border-radius);
+}
+
+
+

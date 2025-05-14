@@ -1,0 +1,197 @@
+
+/* --- Single Events Template View ---- */
+
+.single-events .clb-event-metabox-wrapper {
+    padding: 30px;
+    margin-bottom: 30px;
+    background: var(--ironwood-medium-gray);
+    border-radius: var(--ironwood-border-radius);
+}
+
+
+
+/* ---- List View ---- */
+
+.clb-events-wrapper.clb-event-view-list .clb-single-event-wrapper {
+    padding: 20px;
+    margin-bottom: 20px;
+    background: var(--ironwood-medium-gray);
+    border-radius: var(--ironwood-border-radius);
+}
+
+
+
+
+    /* ---- Custom Calendar Month View Work ---- */
+
+.clb-events-calendar-view-root {
+    margin-top: 60px;
+    margin-bottom: 60px;
+}
+
+.clb-events-calendar-view-root h2 {
+    margin: 0;
+}
+
+.clb-calendar-week-wrapper {
+    min-height: 120px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 3px;
+    margin-bottom: 3px;
+}
+
+.clb-calendar-week-header-row {
+    height: fit-content;
+    min-height: fit-content;
+    padding: 4px;
+    text-align: center;
+    background: var(--dhm-navy);
+    color: var(--dhm-white);
+    font-weight: 700;
+}
+
+.clb-calendar-day-wrapper {
+    background: var(--dhm-light-beige);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.clb-calendar-action-wrapper {
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.clb-calendar-action-btn {
+    background: var(--dhm-white);
+    color: var(--dhm-navy);
+}
+
+.clb-calendar-date-wrapper {
+    padding: 2px 4px;
+    font-weight: 700;
+}
+
+.clb-calendar-today {
+    background: var(--dhm-white);
+}
+
+.clb-calendar-today .clb-calendar-date-wrapper {
+    color: var(--dhm-chalice-red);
+}
+
+.clb-calendar-today-btn {
+    padding: 6px 10px;
+    border: 1px solid var(--dhm-navy);
+    font-size: var(--ironwood-font-size-sm);
+    opacity: .6;
+}
+
+.clb-calendar-today-btn:hover {
+    opacity: 1;
+}
+
+.clb-calendar-single-event-wrapper {
+    font-size: var(--ironwood-font-size-sm);
+    letter-spacing: -1px;
+    line-height: 1.2;
+    border: 1px solid var(--dhm-black);
+    padding: 4px;
+    margin: 4px;
+}
+
+.clb-calendar-single-event-wrapper a {
+    color: var(--dhm-black);
+    text-decoration: none;
+}
+
+.clb-calendar-single-event-wrapper a:hover {
+    cursor: pointer;
+    color: var(--dhm-chalice-red);
+}
+
+.clb-calendar-next-actions-wrapper,
+.clb-calendar-prev-actions-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.clb-events-calendar-view-root .clb-calendar-today-btn {
+    opacity: 0;
+    visibility: hidden;
+    transition: all ease-in-out .25s;
+}
+
+.clb-events-calendar-view-root[data-month-status="future"] #clb-calendar-action-today-prev {
+    visibility: visible;
+    opacity: .6;
+}
+
+.clb-events-calendar-view-root[data-month-status="past"] #clb-calendar-action-today-next {
+    visibility: visible;
+    opacity: .6;
+}
+
+.clb-events-calendar-view-root[data-month-status="past"] #clb-calendar-action-today-next:hover,
+.clb-events-calendar-view-root[data-month-status="future"] #clb-calendar-action-today-prev:hover {
+    opacity: 1;
+}
+
+@media screen and (min-width: 960px) {
+
+    .clb-3-col-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+    }
+
+    .clb-4-col-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 20px;
+    }
+
+    .clb-5-col-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        gap: 20px;
+    }
+
+    
+}
+
+
+@media screen and (max-width: 959px) {
+
+    .clb-calendar-week-wrapper {
+        grid-template-columns: 1fr;
+        min-height: fit-content;
+    }
+
+    .clb-calendar-week-header-row,
+    .clb-calendar-today-btn {
+        display: none;
+    }
+
+    .clb-calendar-action-btn {
+        padding: 4px;
+    }
+
+    .clb-calendar-month-title-wrapper {
+        margin-bottom: 0;
+    }
+
+    .clb-calendar-month-title-wrapper h2 {
+        font-size: var(--ironwood-font-size-lg);
+        text-align: center;
+    }
+
+}
+

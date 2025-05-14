@@ -1,0 +1,15 @@
+{
+    "name": "acf/events-list",
+    "title": "Events List",
+    "description": "A custom events listing block.",
+    "style": [ "file:./clb_events_list.css" ],
+    "category": "common",
+    "icon": "calendar",
+    "keywords": ["calendar", "list", "meeting"],
+    "acf": {
+        "mode": "preview",
+        "renderTemplate": "clb_events_list.php"
+    },
+    "align": "full",
+    "providesContext": {"acf/fields": "data"}
+}

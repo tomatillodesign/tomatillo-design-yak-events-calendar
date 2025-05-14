@@ -1,0 +1,15 @@
+{
+    "name": "acf/events-calendar",
+    "title": "Events Calendar",
+    "description": "A custom interactive events calendar block.",
+    "style": [ "file:./clb_events_calendar.css" ],
+    "category": "common",
+    "icon": "calendar",
+    "keywords": ["calendar", "month", "meeting"],
+    "acf": {
+        "mode": "preview",
+        "renderTemplate": "clb_events_calendar.php"
+    },
+    "align": "full",
+    "providesContext": {"acf/fields": "data"}
+}
