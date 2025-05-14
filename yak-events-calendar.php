@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Yak Events Calendar
+Plugin Name: Tomatillo Design ~ Yak Events Calendar
 Description: Custom Events Calendar for WordPress with CPT + Block. Requires ACF installed and activated.
 Author: Chris Liu-Beers, Tomatillo Design
 Author URI: http://www.tomatillodesign.com
