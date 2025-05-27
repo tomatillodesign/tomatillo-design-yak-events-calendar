@@ -54,6 +54,15 @@ function clb_add_event_cpt_121() {
 }
 
 
+// Flush permalinks on plugin activation
+function yak_events_calendar_activate() {
+	// Ensure CPT is registered before flushing
+	clb_add_event_cpt_121();
+	flush_rewrite_rules();
+}
+register_activation_hook( __FILE__, 'yak_events_calendar_activate' );
+
+
 //Create Custom Taxonomies
 add_action( 'init', 'clb_add_event_category_121' );
 function clb_add_event_category_121() {

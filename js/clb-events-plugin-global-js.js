@@ -1,6 +1,4 @@
 
-
-console.log('events listing 301pm');
 (function () {
     // Check if the element with the given ID exists
     if (!document.getElementById('clb-events-calendar-view-root')) {
@@ -8,8 +6,6 @@ console.log('events listing 301pm');
         return;
     }
 
-    // Rest of your JavaScript code here
-    console.log('Element exists! Proceeding with the rest of the script.');
 })();
 
 
@@ -93,8 +89,6 @@ const clbCreateCalendarActions = function(month, year) {
         const todayYear = today.getFullYear();
         const firstOfCurrentMonth = new Date(todayYear, todayMonth, 1);
         const firstOfCurrentMonthTimestamp = firstOfCurrentMonth.getTime();
-        console.log(firstOfCurrentMonthTimestamp);
-        console.log(now.getTime());
 
         if( firstOfCurrentMonthTimestamp == now.getTime() ) { root.setAttribute('data-month-status', 'present'); }
         else if( firstOfCurrentMonthTimestamp < now.getTime() ) { root.setAttribute('data-month-status', 'future'); }
@@ -189,11 +183,9 @@ const clbCreateMonth = function(month, year) {
         return;
     }
 
-    console.log(dhmEvents);
     const firstDayOfMonthDateObj = new Date(year, month, 1);
     
     const firstDayOfMonthNumber = firstDayOfMonthDateObj.getDay();
-    console.log(firstDayOfMonthNumber);
     let dayCounter = null;
 
     const totalDaysInMonth = daysInMonth(month, year);
@@ -221,7 +213,6 @@ const clbCreateMonth = function(month, year) {
         return ((eventStartTimestamp >= monthOpeningTimestamp) && (eventStartTimestamp <= monthClosingTimestamp));
 
     } );
-    console.log(thisMonthEvents);
 
     //////////////////////////////////////////////
 
@@ -302,7 +293,6 @@ const clbCreateMonth = function(month, year) {
                     newDaySquare.innerHTML += '<span class="clb-calendar-date-wrapper">' + dayCounter + '</span>';
 
                     thisDayEvents.forEach((event) => {
-                        console.log(event);
                         const eventTitle = event['title'];
                         const eventPermalink = event['permalink'];
                         newDaySquare.innerHTML += '<div class="clb-calendar-single-event-wrapper"><a href="' + eventPermalink + '">' + eventTitle + '</a></div>';
@@ -325,8 +315,6 @@ const clbCreateMonth = function(month, year) {
 
 
 const clbInitializeCalendar = function() {
-
-    console.log( "clb-dhm-events-calendar-view.js 817am");
 
     ///////////// create new divs in a grid
     const newDiv = document.createElement("div");
