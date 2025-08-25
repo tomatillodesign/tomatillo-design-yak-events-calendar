@@ -1,12 +1,12 @@
 
 /* --- Single Events Template View ---- */
 
-.single-events .clb-event-metabox-wrapper {
+/* .single-events .clb-event-metabox-wrapper {
     padding: 30px;
     margin-bottom: 30px;
     background: var(--ironwood-medium-gray);
     border-radius: var(--ironwood-border-radius);
-}
+} */
 
 
 
@@ -19,5 +19,7 @@
     border-radius: var(--ironwood-border-radius);
 }
 
-
+.clb-events-featured {
+    margin-bottom: 4rem;
+}
 
