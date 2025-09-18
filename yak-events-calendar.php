@@ -4,7 +4,7 @@ Plugin Name: Tomatillo Design ~ Yak Events Calendar
 Description: Custom Events Calendar for WordPress with CPT + Block. Requires ACF installed and activated.
 Author: Chris Liu-Beers, Tomatillo Design
 Author URI: http://www.tomatillodesign.com
-Version: 1.0.1
+Version: 1.1
 License: GPL v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 */
@@ -153,6 +153,11 @@ add_action( 'acf/include_fields', function() {
 	'key' => 'group_66956ef63fd8c',
 	'title' => 'Event Info',
 	'fields' => array(
+		/**
+		 * Row 1: Start/End + All Day toggle
+		 * - DT fields show only when All Day is OFF
+		 * - Date-only fields show only when All Day is ON
+		 */
 		array(
 			'key' => 'field_66956f15f7c61',
 			'label' => 'Event Start Date & Time',
@@ -161,15 +166,23 @@ add_action( 'acf/include_fields', function() {
 			'type' => 'date_time_picker',
 			'instructions' => '',
 			'required' => 0,
-			'conditional_logic' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_all_day',
+						'operator' => '==',
+						'value'    => '0',
+					),
+				),
+			),
 			'wrapper' => array(
 				'width' => '25',
 				'class' => '',
-				'id' => '',
+				'id'    => '',
 			),
 			'display_format' => 'F j, Y g:i a',
-			'return_format' => 'F j, Y g:i a',
-			'first_day' => 0,
+			'return_format'  => 'F j, Y g:i a',
+			'first_day'      => 0,
 			'allow_in_bindings' => 1,
 		),
 		array(
@@ -180,17 +193,103 @@ add_action( 'acf/include_fields', function() {
 			'type' => 'date_time_picker',
 			'instructions' => '',
 			'required' => 0,
-			'conditional_logic' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_all_day',
+						'operator' => '==',
+						'value'    => '0',
+					),
+				),
+			),
 			'wrapper' => array(
 				'width' => '25',
 				'class' => '',
-				'id' => '',
+				'id'    => '',
 			),
 			'display_format' => 'F j, Y g:i a',
-			'return_format' => 'F j, Y g:i a',
-			'first_day' => 0,
+			'return_format'  => 'F j, Y g:i a',
+			'first_day'      => 0,
 			'allow_in_bindings' => 1,
 		),
+		array(
+			'key' => 'field_yak_event_start_date_only',
+			'label' => 'Event Start Date',
+			'name'  => 'event_start_date',
+			'aria-label' => '',
+			'type'  => 'date_picker',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_all_day',
+						'operator' => '==',
+						'value'    => '1',
+					),
+				),
+			),
+			'wrapper' => array(
+				'width' => '25',
+				'class' => '',
+				'id'    => '',
+			),
+			'display_format' => 'F j, Y',
+			'return_format'  => 'F j, Y',
+			'first_day'      => 0,
+			'allow_in_bindings' => 1,
+		),
+		array(
+			'key' => 'field_yak_event_end_date_only',
+			'label' => 'Event End Date',
+			'name'  => 'event_end_date',
+			'aria-label' => '',
+			'type'  => 'date_picker',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_all_day',
+						'operator' => '==',
+						'value'    => '1',
+					),
+				),
+			),
+			'wrapper' => array(
+				'width' => '25',
+				'class' => '',
+				'id'    => '',
+			),
+			'display_format' => 'F j, Y',
+			'return_format'  => 'F j, Y',
+			'first_day'      => 0,
+			'allow_in_bindings' => 1,
+		),
+		array(
+			'key' => 'field_yak_event_all_day',
+			'label' => 'All Day?',
+			'name'  => 'event_all_day',
+			'aria-label' => '',
+			'type'  => 'true_false',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '10',
+				'class' => '',
+				'id'    => '',
+			),
+			'message' => '',
+			'default_value' => 0,
+			'allow_in_bindings' => 1,
+			'ui' => 1,
+			'ui_on_text'  => '',
+			'ui_off_text' => '',
+		),
+		
+
+		// Existing fields continue
 		array(
 			'key' => 'field_66ba14f03142f',
 			'label' => 'Featured Event?',
@@ -201,7 +300,7 @@ add_action( 'acf/include_fields', function() {
 			'required' => 0,
 			'conditional_logic' => 0,
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '15',
 				'class' => '',
 				'id' => '',
 			),
@@ -222,7 +321,7 @@ add_action( 'acf/include_fields', function() {
 			'required' => 0,
 			'conditional_logic' => 0,
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '15',
 				'class' => '',
 				'id' => '',
 			),
@@ -388,21 +487,61 @@ add_action( 'acf/include_fields', function() {
 
 
 
+
 ////
 
 // Update DHM Event unix timestamp on save
-add_action('acf/save_post', 'my_acf_save_post_update_dhm_event_unix_timestamp');
+add_action( 'acf/save_post', 'my_acf_save_post_update_dhm_event_unix_timestamp' );
 function my_acf_save_post_update_dhm_event_unix_timestamp( $post_id ) {
+	// Only for real posts (avoid autosaves/revisions/options pages).
+	if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+		return;
+	}
 
-    // Get newly saved values.
-    $event_start_date_time = get_field( 'event_start_date_time', $post_id );
+	// Optional: limit to your CPT.
+	$post_type = get_post_type( $post_id );
+	if ( $post_type && 'events' !== $post_type ) {
+		return;
+	}
 
-    // Save a basic text value.
-    $field_key = "field_6695707249b6a";
-    $value = strtotime($event_start_date_time);
-    $value = intval($value);
-    update_field( $field_key, $value, $post_id );
+	// ACF fields
+	$all_day               = (bool) get_field( 'event_all_day', $post_id );
+	$start_datetime_string = (string) get_field( 'event_start_date_time', $post_id ); // formatted per field
+	$start_date_string     = (string) get_field( 'event_start_date', $post_id );      // formatted per field
 
+	// Decide source:
+	// - If All Day && date exists -> use date-only at 00:00 local.
+	// - Else if datetime exists   -> use datetime.
+	// - Else -> 0 (unset).
+	$timestamp = 0;
+
+	$tz = wp_timezone(); // honors Settings → General → Timezone
+
+	if ( $all_day && $start_date_string ) {
+		// ACF return_format for date is 'F j, Y' in your config.
+		$dt = DateTimeImmutable::createFromFormat( 'F j, Y', $start_date_string, $tz );
+		if ( $dt instanceof DateTimeImmutable ) {
+			$timestamp = $dt->setTime( 0, 0, 0 )->getTimestamp();
+		} else {
+			// Fallback if format ever changes
+			$ts = strtotime( $start_date_string );
+			$timestamp = $ts ? (int) $ts : 0;
+		}
+	} elseif ( $start_datetime_string ) {
+		// ACF return_format for datetime is 'F j, Y g:i a' in your config.
+		$dt = DateTimeImmutable::createFromFormat( 'F j, Y g:i a', $start_datetime_string, $tz );
+		if ( $dt instanceof DateTimeImmutable ) {
+			$timestamp = $dt->getTimestamp();
+		} else {
+			// Fallback if format ever changes
+			$ts = strtotime( $start_datetime_string );
+			$timestamp = $ts ? (int) $ts : 0;
+		}
+	}
+
+	// Save to the hidden number field by FIELD KEY (keeps ACF happy).
+	// field_6695707249b6a = "UNIX Timestamp - DO NOT EDIT"
+	update_field( 'field_6695707249b6a', (int) $timestamp, $post_id );
 }
 
 
@@ -731,3 +870,105 @@ function clb_enqueue_calendar_plugin_js_functionality_121() {
     // return '<div id="dhm-events-root" class="clb-dhm-events-root"></div>';
 
 }
+
+
+
+/**
+ * Admin columns: replace WP "Date" with "Event Start" and make it sortable.
+ */
+add_filter( 'manage_edit-events_columns', function( $cols ) {
+	// Remove the core Date column.
+	if ( isset( $cols['date'] ) ) {
+		unset( $cols['date'] );
+	}
+
+	// Inject our Event Start column near the end.
+	$cols['yak_event_start'] = __( 'Event Start', 'yak-events' );
+	return $cols;
+} );
+
+add_action( 'manage_events_posts_custom_column', function( $column, $post_id ) {
+	if ( 'yak_event_start' !== $column ) {
+		return;
+	}
+
+	// Prefer the precomputed numeric timestamp (fast & consistent).
+	$ts = (int) get_field( 'event_unix_timestamp', $post_id );
+
+	// Fallbacks if someone saved before we added the saver.
+	if ( ! $ts ) {
+		$all_day = (bool) get_field( 'event_all_day', $post_id );
+		if ( $all_day ) {
+			$start_date = (string) get_field( 'event_start_date', $post_id );
+			if ( $start_date ) {
+				// Try your configured ACF format first (F j, Y); fall back to strtotime().
+				$dt = DateTimeImmutable::createFromFormat( 'F j, Y', $start_date, wp_timezone() );
+				$ts = $dt ? $dt->setTime( 0, 0, 0 )->getTimestamp() : (int) strtotime( $start_date );
+			}
+		} else {
+			$start_dt = (string) get_field( 'event_start_date_time', $post_id );
+			if ( $start_dt ) {
+				$dt = DateTimeImmutable::createFromFormat( 'F j, Y g:i a', $start_dt, wp_timezone() );
+				$ts = $dt ? $dt->getTimestamp() : (int) strtotime( $start_dt );
+			}
+		}
+	}
+
+	if ( ! $ts ) {
+		echo '<em>' . esc_html__( '—', 'yak-events' ) . '</em>';
+		return;
+	}
+
+	$all_day = (bool) get_field( 'event_all_day', $post_id );
+
+	// Format for display (local site timezone).
+	if ( $all_day ) {
+		$label = wp_date( 'M j, Y', $ts, wp_timezone() );
+	} else {
+		$label = wp_date( 'M j, Y g:i a', $ts, wp_timezone() );
+	}
+
+	echo esc_html( $label );
+
+	if ( $all_day ) {
+		echo ' <span class="description" style="white-space:nowrap;">' . esc_html__( '(All Day)', 'yak-events' ) . '</span>';
+	}
+}, 10, 2 );
+
+add_filter( 'manage_edit-events_sortable_columns', function( $cols ) {
+	// Map our column key to a virtual "orderby" key.
+	$cols['yak_event_start'] = 'yak_event_start';
+	return $cols;
+} );
+
+/**
+ * Apply sorting for our Event Start column and set a sane default order.
+ */
+add_action( 'pre_get_posts', function( WP_Query $q ) {
+	if ( ! is_admin() || ! $q->is_main_query() ) {
+		return;
+	}
+	if ( 'events' !== $q->get( 'post_type' ) ) {
+		return;
+	}
+
+	// Default sort: newest events first by our numeric timestamp.
+	$orderby = $q->get( 'orderby' );
+	if ( empty( $orderby ) ) {
+		$q->set( 'meta_key', 'event_unix_timestamp' );
+		$q->set( 'orderby', 'meta_value_num' );
+		$q->set( 'order', 'DESC' );
+		return;
+	}
+
+	// Handle clicking our column header.
+	if ( 'yak_event_start' === $orderby ) {
+		$q->set( 'meta_key', 'event_unix_timestamp' );
+		$q->set( 'orderby', 'meta_value_num' );
+
+		// Respect requested 'order' if present; otherwise keep DESC.
+		if ( ! $q->get( 'order' ) ) {
+			$q->set( 'order', 'DESC' );
+		}
+	}
+} );
