@@ -4,7 +4,7 @@ Plugin Name: Tomatillo Design ~ Yak Events Calendar
 Description: Custom Events Calendar for WordPress with CPT + Block. Requires ACF installed and activated.
 Author: Chris Liu-Beers, Tomatillo Design
 Author URI: http://www.tomatillodesign.com
-Version: 1.2
+Version: 1.3
 License: GPL v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 */
@@ -770,84 +770,223 @@ function yak_hide_timestamp_from_non_admins( $field ) {
 
 
 /**
- * TODO: Complex Logic for Multi-Session Events Sorting
+ * MULTI-SESSION EVENT SORTING - IMPLEMENTED ✓
  * 
- * Currently, the unix timestamp is set based on the main event start date.
- * For multi-session events, we need MORE COMPLEX logic:
+ * The unix timestamp for events is now dynamically calculated:
  * 
- * - The timestamp should be the NEXT UPCOMING SESSION (not the first session)
- * - If all sessions are past, use the last session end datetime
- * - This ensures multi-session events sort correctly in "upcoming" lists
+ * For MULTI-SESSION events:
+ * - If any session is upcoming: Uses the NEXT upcoming session's start time
+ * - If all sessions are past: Uses the LAST session's end time
+ * 
+ * For SINGLE events:
+ * - Uses the main event start date/time
  * 
  * Example:
  *   Event with 3 sessions:
  *   - Session 1: Nov 1 (PAST)
  *   - Session 2: Nov 8 (PAST)
- *   - Session 3: Nov 15 (FUTURE) <- Use this timestamp
+ *   - Session 3: Nov 15 (FUTURE) <- Uses this timestamp
  * 
  *   Result: Event appears between Nov 10 and Nov 20 events in the list
  * 
- * This requires:
- * 1. Loop through all sessions
- * 2. Find the next future session from current time
- * 3. Use that session's start datetime as the unix timestamp
- * 4. If no future sessions, use last session end (for archive/past sorting)
+ * Implementation:
+ * - Transient-based lazy update system (recalculates every X hours)
+ * - Async background processing (doesn't block page loads)
+ * - Multiple trigger points (front-end, admin, heartbeat API)
+ * - Settings page for configuration and debugging
  * 
- * TO BE IMPLEMENTED in next phase.
+ * See Settings & Debug page under Events menu for monitoring.
  */
 
-// Update DHM Event unix timestamp on save
-add_action( 'acf/save_post', 'my_acf_save_post_update_dhm_event_unix_timestamp' );
+// Update event unix timestamp on save
+add_action( 'acf/save_post', 'my_acf_save_post_update_dhm_event_unix_timestamp', 20 ); // Priority 20 to run after ACF saves fields
 function my_acf_save_post_update_dhm_event_unix_timestamp( $post_id ) {
 	// Only for real posts (avoid autosaves/revisions/options pages).
 	if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
 		return;
 	}
 
-	// Optional: limit to your CPT.
+	// Only for events CPT
 	$post_type = get_post_type( $post_id );
 	if ( $post_type && 'events' !== $post_type ) {
 		return;
 	}
 
-	// ACF fields
-	$all_day               = (bool) get_field( 'event_all_day', $post_id );
-	$start_datetime_string = (string) get_field( 'event_start_date_time', $post_id ); // formatted per field
-	$start_date_string     = (string) get_field( 'event_start_date', $post_id );      // formatted per field
+	// Calculate and update timestamp
+	$timestamp = yak_calculate_event_unix_timestamp( $post_id );
+	
+	// Save to the hidden number field by FIELD KEY
+	update_field( 'field_6695707249b6a', (int) $timestamp, $post_id );
+	
+	// Clear the transient to force recalculation on next load
+	delete_transient( 'yak_events_last_recalc' );
+	
+	// Log the save
+	yak_log_event( 'Event saved and timestamp updated', array(
+		'post_id' => $post_id,
+		'timestamp' => $timestamp,
+		'human_time' => $timestamp ? date( 'F j, Y g:i a', $timestamp ) : 'No timestamp',
+	));
+}
 
-	// Decide source:
-	// - If All Day && date exists -> use date-only at 00:00 local.
-	// - Else if datetime exists   -> use datetime.
-	// - Else -> 0 (unset).
+/**
+ * Calculate the appropriate unix timestamp for an event
+ * 
+ * Logic:
+ * - For multi-session events: Use next upcoming session start OR last session end (if all past)
+ * - For single events: Use main event start date/time
+ * 
+ * @param int $post_id Event post ID
+ * @return int Unix timestamp
+ */
+function yak_calculate_event_unix_timestamp( $post_id ) {
+	$tz = wp_timezone();
+	$now = current_time( 'timestamp' );
+	
+	// Check if this is a multi-session event
+	$has_sessions = (bool) get_field( 'event_has_sessions', $post_id );
+	
+	if ( $has_sessions ) {
+		$sessions = get_field( 'event_sessions', $post_id );
+		
+		if ( $sessions && is_array( $sessions ) ) {
+			$session_timestamps = array();
+			
+			foreach ( $sessions as $session ) {
+				$session_all_day = isset( $session['session_all_day'] ) ? (bool) $session['session_all_day'] : false;
+				
+				if ( $session_all_day ) {
+					// Use date fields
+					$start_date_string = isset( $session['session_start_date'] ) ? (string) $session['session_start_date'] : '';
+					$end_date_string = isset( $session['session_end_date'] ) ? (string) $session['session_end_date'] : '';
+					
+					if ( $start_date_string ) {
+						$dt = DateTimeImmutable::createFromFormat( 'F j, Y', $start_date_string, $tz );
+						if ( $dt ) {
+							$session_timestamps[] = array(
+								'start' => $dt->setTime( 0, 0, 0 )->getTimestamp(),
+								'end' => $end_date_string ? yak_parse_date_string( $end_date_string, true, $tz ) : $dt->setTime( 23, 59, 59 )->getTimestamp(),
+							);
+						}
+					}
+				} else {
+					// Use datetime fields
+					$start_datetime_string = isset( $session['session_start_datetime'] ) ? (string) $session['session_start_datetime'] : '';
+					$end_datetime_string = isset( $session['session_end_datetime'] ) ? (string) $session['session_end_datetime'] : '';
+					
+					if ( $start_datetime_string ) {
+						$start_ts = yak_parse_datetime_string( $start_datetime_string, $tz );
+						$end_ts = $end_datetime_string ? yak_parse_datetime_string( $end_datetime_string, $tz ) : $start_ts;
+						
+						if ( $start_ts ) {
+							$session_timestamps[] = array(
+								'start' => $start_ts,
+								'end' => $end_ts,
+							);
+						}
+					}
+				}
+			}
+			
+			if ( ! empty( $session_timestamps ) ) {
+				// Sort by start time
+				usort( $session_timestamps, function( $a, $b ) {
+					return $a['start'] - $b['start'];
+				});
+				
+				// Find next upcoming session
+				foreach ( $session_timestamps as $session ) {
+					if ( $session['start'] >= $now ) {
+						// Found an upcoming session, use its start time
+						return $session['start'];
+					}
+				}
+				
+				// All sessions are past, use the last session's end time
+				$last_session = end( $session_timestamps );
+				return $last_session['end'];
+			}
+		}
+	}
+	
+	// Single event (not multi-session) - use main event fields
+	$all_day = (bool) get_field( 'event_all_day', $post_id );
+	$start_datetime_string = (string) get_field( 'event_start_date_time', $post_id );
+	$start_date_string = (string) get_field( 'event_start_date', $post_id );
+	
 	$timestamp = 0;
-
-	$tz = wp_timezone(); // honors Settings → General → Timezone
-
+	
 	if ( $all_day && $start_date_string ) {
-		// ACF return_format for date is 'F j, Y' in your config.
 		$dt = DateTimeImmutable::createFromFormat( 'F j, Y', $start_date_string, $tz );
 		if ( $dt instanceof DateTimeImmutable ) {
 			$timestamp = $dt->setTime( 0, 0, 0 )->getTimestamp();
 		} else {
-			// Fallback if format ever changes
 			$ts = strtotime( $start_date_string );
 			$timestamp = $ts ? (int) $ts : 0;
 		}
 	} elseif ( $start_datetime_string ) {
-		// ACF return_format for datetime is 'F j, Y g:i a' in your config.
 		$dt = DateTimeImmutable::createFromFormat( 'F j, Y g:i a', $start_datetime_string, $tz );
 		if ( $dt instanceof DateTimeImmutable ) {
 			$timestamp = $dt->getTimestamp();
 		} else {
-			// Fallback if format ever changes
 			$ts = strtotime( $start_datetime_string );
 			$timestamp = $ts ? (int) $ts : 0;
 		}
 	}
+	
+	return $timestamp;
+}
 
-	// Save to the hidden number field by FIELD KEY (keeps ACF happy).
-	// field_6695707249b6a = "UNIX Timestamp - DO NOT EDIT"
-	update_field( 'field_6695707249b6a', (int) $timestamp, $post_id );
+/**
+ * Helper: Parse datetime string to unix timestamp
+ * Properly handles WordPress timezone
+ */
+function yak_parse_datetime_string( $datetime_string, $tz ) {
+	// Create datetime object in the site's timezone
+	$dt = DateTimeImmutable::createFromFormat( 'F j, Y g:i a', $datetime_string, $tz );
+	if ( $dt instanceof DateTimeImmutable ) {
+		// getTimestamp() returns UTC timestamp, which is what we want
+		// The timezone was already accounted for in createFromFormat
+		return $dt->getTimestamp();
+	}
+	
+	// Fallback: use strtotime
+	$ts = strtotime( $datetime_string );
+	if ( $ts ) {
+		return (int) $ts;
+	}
+	
+	return 0;
+}
+
+/**
+ * Helper: Parse date string to unix timestamp
+ * Properly handles WordPress timezone
+ */
+function yak_parse_date_string( $date_string, $end_of_day = false, $tz = null ) {
+	if ( ! $tz ) {
+		$tz = wp_timezone();
+	}
+	
+	// Create date object in the site's timezone
+	$dt = DateTimeImmutable::createFromFormat( 'F j, Y', $date_string, $tz );
+	if ( $dt instanceof DateTimeImmutable ) {
+		// Set time to start or end of day in the site's timezone
+		$dt = $end_of_day ? $dt->setTime( 23, 59, 59 ) : $dt->setTime( 0, 0, 0 );
+		return $dt->getTimestamp();
+	}
+	
+	// Fallback: use strtotime
+	$ts = strtotime( $date_string );
+	if ( $ts ) {
+		if ( $end_of_day ) {
+			// Add 23 hours, 59 minutes, 59 seconds
+			$ts += ( 24 * HOUR_IN_SECONDS ) - 1;
+		}
+		return (int) $ts;
+	}
+	
+	return 0;
 }
 
 
@@ -1089,7 +1228,28 @@ function yak_format_event_date_range( $start, $end, $is_all_day = false ) {
         if ( $start === $end || ! $end ) {
             return $start;
         }
-        return $start . ' – ' . $end;
+        
+        // Parse dates for smarter formatting
+        $start_obj = DateTime::createFromFormat( 'F j, Y', $start, wp_timezone() );
+        $end_obj = DateTime::createFromFormat( 'F j, Y', $end, wp_timezone() );
+        
+        if ( ! $start_obj || ! $end_obj ) {
+            // Fallback to original format if parsing fails
+            return $start . ' – ' . $end;
+        }
+        
+        // Same month and year: November 12-13, 2025
+        if ( $start_obj->format('Y-m') === $end_obj->format('Y-m') ) {
+            return $start_obj->format('F j') . '-' . $end_obj->format('j, Y');
+        }
+        
+        // Different months, same year: November 12 – December 2, 2025
+        if ( $start_obj->format('Y') === $end_obj->format('Y') ) {
+            return $start_obj->format('F j') . ' – ' . $end_obj->format('F j, Y');
+        }
+        
+        // Different years: December 30, 2024 – January 2, 2025
+        return $start_obj->format('F j, Y') . ' – ' . $end_obj->format('F j, Y');
     }
     
     // Timed events: use datetime picker format (F j, Y g:i a)
@@ -1259,11 +1419,11 @@ function clb_enqueue_calendar_plugin_js_functionality_121() {
     }
 
     // enqueue JS
-    wp_enqueue_script( 'clb-events-plugin-global-js', plugin_dir_url( __FILE__ ) . 'js/clb-events-plugin-global-js.js', array( 'jquery' ), '1.0.0', true );
+    wp_enqueue_script( 'clb-events-plugin-global-js', plugin_dir_url( __FILE__ ) . 'js/clb-events-plugin-global-js.js', array( 'jquery' ), '1.3.4', true );
     wp_localize_script( 'clb-events-plugin-global-js', 'dhmEvents', $dhmEventsArray );
 
     // enqueue calendar view JS
-    wp_enqueue_script( 'clb-events-calendar-view-js', plugin_dir_url( __FILE__ ) . 'blocks/events_calendar/js/clb-events-calendar-view.js', array( 'jquery' ), '1.0.0', true );
+    wp_enqueue_script( 'clb-events-calendar-view-js', plugin_dir_url( __FILE__ ) . 'blocks/events_calendar/js/clb-events-calendar-view.js', array( 'jquery' ), '1.3.4', true );
 
     // return '<div id="dhm-events-root" class="clb-dhm-events-root"></div>';
 
@@ -1276,32 +1436,10 @@ function clb_enqueue_calendar_plugin_js_functionality_121() {
  * Can be accessed via shortcode [yak_events_debug] or via admin menu
  */
 
-// Add admin menu page
-add_action('admin_menu', 'yak_events_debug_menu');
-function yak_events_debug_menu() {
-    add_submenu_page(
-        'edit.php?post_type=events',
-        'Events Debug Report',
-        'Debug Report',
-        'manage_options',
-        'yak-events-debug',
-        'yak_events_debug_page'
-    );
-}
-
-// Admin page callback
-function yak_events_debug_page() {
-    echo '<div class="wrap">';
-    echo '<h1>Events Debug Report</h1>';
-    echo '<p><em>This is a temporary debugging page to verify event metadata handling.</em></p>';
-    echo yak_events_debug_output();
-    echo '</div>';
-}
-
-// Shortcode for front-end access
+// Shortcode for front-end access (restricted to administrators)
 add_shortcode('yak_events_debug', 'yak_events_debug_shortcode');
 function yak_events_debug_shortcode($atts) {
-    if (!current_user_can('manage_options')) {
+    if (!current_user_can('administrator')) {
         return '<p>You do not have permission to view this page.</p>';
     }
     return yak_events_debug_output();
@@ -1405,7 +1543,8 @@ function yak_events_debug_output() {
                         <?php endif; ?>
                         <li><strong>Unix Timestamp:</strong> <?php echo $unix_timestamp ? $unix_timestamp : '<em>0</em>'; ?></li>
                         <?php if ($unix_timestamp) : ?>
-                            <li><strong>Timestamp Date:</strong> <?php echo date('Y-m-d H:i:s', $unix_timestamp); ?></li>
+                            <li><strong>Timestamp Date (WP TZ):</strong> <?php echo wp_date('Y-m-d H:i:s', $unix_timestamp); ?></li>
+                            <li><strong>Timestamp Date (UTC):</strong> <?php echo gmdate('Y-m-d H:i:s', $unix_timestamp); ?></li>
                         <?php endif; ?>
                     </ul>
                 </td>
@@ -1563,3 +1702,526 @@ add_action( 'pre_get_posts', function( WP_Query $q ) {
 		}
 	}
 } );
+
+
+/* ==================================================================
+ * TRANSIENT-BASED LAZY UPDATE SYSTEM FOR MULTI-SESSION EVENTS
+ * ================================================================== */
+
+/**
+ * Get the configured cache interval (in seconds)
+ * Default: 2 hours
+ */
+function yak_get_cache_interval() {
+	$hours = get_option( 'yak_events_cache_hours', 2 );
+	return absint( $hours ) * HOUR_IN_SECONDS;
+}
+
+/**
+ * Check if timestamps need recalculation and trigger if needed
+ * This is called from multiple trigger points
+ */
+function yak_maybe_trigger_timestamp_recalc() {
+	// Check if transient exists
+	$last_recalc = get_transient( 'yak_events_last_recalc' );
+	
+	if ( false === $last_recalc ) {
+		// Transient expired or doesn't exist, trigger recalculation
+		
+		// Set transient immediately to prevent multiple simultaneous triggers
+		$interval = yak_get_cache_interval();
+		set_transient( 'yak_events_last_recalc', current_time( 'timestamp' ), $interval );
+		
+		// Log the trigger
+		yak_log_event( 'Timestamp recalculation triggered', array(
+			'interval_hours' => $interval / HOUR_IN_SECONDS,
+			'next_recalc' => date( 'F j, Y g:i a', current_time( 'timestamp' ) + $interval ),
+		));
+		
+		// Trigger async background process
+		yak_trigger_async_recalc();
+	}
+}
+
+/**
+ * Trigger async background recalculation via admin-ajax
+ */
+function yak_trigger_async_recalc() {
+	// Create a unique secret key for this specific recalculation
+	$secret = wp_generate_password( 32, false );
+	set_transient( 'yak_recalc_secret', $secret, 60 ); // Valid for 60 seconds
+	
+	// Trigger non-blocking background request
+	wp_remote_post( admin_url( 'admin-ajax.php' ), array(
+		'blocking' => false, // Don't wait for response
+		'timeout' => 0.01,   // Return immediately
+		'body' => array(
+			'action' => 'yak_recalc_event_timestamps',
+			'secret' => $secret,
+		),
+	));
+}
+
+/**
+ * AJAX handler for background timestamp recalculation
+ * This runs asynchronously and doesn't block page loads
+ * Uses secret key verification (not nonce) because it's non-blocking
+ */
+add_action( 'wp_ajax_yak_recalc_event_timestamps', 'yak_recalc_timestamps_background' );
+add_action( 'wp_ajax_nopriv_yak_recalc_event_timestamps', 'yak_recalc_timestamps_background' );
+
+function yak_recalc_timestamps_background() {
+	// Verify secret key (transient-based for non-blocking requests)
+	$submitted_secret = isset( $_POST['secret'] ) ? $_POST['secret'] : '';
+	$stored_secret = get_transient( 'yak_recalc_secret' );
+	
+	if ( ! $submitted_secret || $submitted_secret !== $stored_secret ) {
+		yak_log_event( 'Background recalc failed: Invalid or expired secret key', array(
+			'has_submitted' => ! empty( $submitted_secret ),
+			'has_stored' => ! empty( $stored_secret ),
+		) );
+		wp_die();
+	}
+	
+	// Delete the secret so it can't be reused
+	delete_transient( 'yak_recalc_secret' );
+	
+	// Increase time limit for large sites
+	set_time_limit( 120 );
+	
+	$start_time = microtime( true );
+	
+	// Get all events (prioritize multi-session events)
+	$args = array(
+		'numberposts' => -1,
+		'post_type'   => 'events',
+		'post_status' => 'publish',
+		'fields'      => 'ids',
+	);
+	
+	$event_ids = get_posts( $args );
+	$updated_count = 0;
+	$multi_session_count = 0;
+	
+	foreach ( $event_ids as $event_id ) {
+		// Calculate new timestamp
+		$new_timestamp = yak_calculate_event_unix_timestamp( $event_id );
+		$old_timestamp = (int) get_field( 'event_unix_timestamp', $event_id );
+		
+		// Only update if changed
+		if ( $new_timestamp !== $old_timestamp ) {
+			update_field( 'field_6695707249b6a', (int) $new_timestamp, $event_id );
+			$updated_count++;
+			
+			// Track multi-session events
+			if ( get_field( 'event_has_sessions', $event_id ) ) {
+				$multi_session_count++;
+			}
+		}
+	}
+	
+	$end_time = microtime( true );
+	$duration = round( $end_time - $start_time, 2 );
+	
+	// Log completion
+	yak_log_event( 'Background timestamp recalculation completed', array(
+		'total_events' => count( $event_ids ),
+		'updated_events' => $updated_count,
+		'multi_session_events' => $multi_session_count,
+		'duration_seconds' => $duration,
+	));
+	
+	wp_die(); // Important for AJAX
+}
+
+
+/* ==================================================================
+ * TRIGGER POINTS
+ * ================================================================== */
+
+/**
+ * Trigger #1: Front-end events block load
+ */
+add_action( 'wp_enqueue_scripts', 'yak_trigger_on_frontend_load', 999 );
+function yak_trigger_on_frontend_load() {
+	// Only trigger if on a page that likely has events
+	if ( is_singular() || is_archive() || is_home() || is_front_page() ) {
+		yak_maybe_trigger_timestamp_recalc();
+	}
+}
+
+/**
+ * Trigger #2: Admin events list view
+ */
+add_action( 'load-edit.php', 'yak_trigger_on_admin_list' );
+function yak_trigger_on_admin_list() {
+	global $typenow;
+	
+	if ( 'events' === $typenow ) {
+		yak_maybe_trigger_timestamp_recalc();
+	}
+}
+
+/**
+ * Trigger #3: WordPress Heartbeat API (admin only)
+ */
+add_filter( 'heartbeat_received', 'yak_trigger_on_heartbeat', 10, 2 );
+function yak_trigger_on_heartbeat( $response, $data ) {
+	// Only in admin area
+	if ( ! is_admin() ) {
+		return $response;
+	}
+	
+	// Only if on events screen
+	$screen = get_current_screen();
+	if ( $screen && ( 'events' === $screen->post_type || 'edit-events' === $screen->id ) ) {
+		yak_maybe_trigger_timestamp_recalc();
+	}
+	
+	return $response;
+}
+
+
+/* ==================================================================
+ * LOGGING SYSTEM
+ * ================================================================== */
+
+/**
+ * Log an event with context data
+ */
+function yak_log_event( $message, $context = array() ) {
+	$max_logs = 100; // Keep last 100 log entries
+	
+	$logs = get_option( 'yak_events_log', array() );
+	
+	$log_entry = array(
+		'timestamp' => current_time( 'timestamp' ),
+		'datetime' => current_time( 'mysql' ),
+		'message' => $message,
+		'context' => $context,
+	);
+	
+	// Add to beginning of array
+	array_unshift( $logs, $log_entry );
+	
+	// Keep only last N entries
+	$logs = array_slice( $logs, 0, $max_logs );
+	
+	update_option( 'yak_events_log', $logs, false ); // No autoload
+}
+
+/**
+ * Clear the event log
+ */
+function yak_clear_event_log() {
+	delete_option( 'yak_events_log' );
+	yak_log_event( 'Event log cleared by admin' );
+}
+
+
+/* ==================================================================
+ * SETTINGS PAGE
+ * ================================================================== */
+
+/**
+ * Add settings page to WordPress admin (Administrator only)
+ */
+add_action( 'admin_menu', 'yak_add_settings_page' );
+function yak_add_settings_page() {
+	// Only show to administrators
+	if ( ! current_user_can( 'administrator' ) ) {
+		return;
+	}
+	
+	add_submenu_page(
+		'edit.php?post_type=events',           // Parent slug
+		'Events Calendar Settings',             // Page title
+		'Settings & Debug',                     // Menu title
+		'administrator',                        // Capability (administrator only)
+		'yak-events-settings',                  // Menu slug
+		'yak_render_settings_page'              // Callback
+	);
+}
+
+/**
+ * Render the settings page (Administrator only)
+ */
+function yak_render_settings_page() {
+	// Double-check administrator capability
+	if ( ! current_user_can( 'administrator' ) ) {
+		wp_die( 'You do not have sufficient permissions to access this page.' );
+	}
+	
+	// Handle form submissions
+	if ( isset( $_POST['yak_clear_log'] ) && check_admin_referer( 'yak_clear_log' ) ) {
+		yak_clear_event_log();
+		echo '<div class="notice notice-success"><p>Event log cleared!</p></div>';
+	}
+	
+	if ( isset( $_POST['yak_force_recalc'] ) && check_admin_referer( 'yak_force_recalc' ) ) {
+		delete_transient( 'yak_events_last_recalc' );
+		yak_trigger_async_recalc();
+		echo '<div class="notice notice-success"><p>Timestamp recalculation triggered! Check the log below for results.</p></div>';
+	}
+	
+	if ( isset( $_POST['yak_save_settings'] ) && check_admin_referer( 'yak_save_settings' ) ) {
+		$cache_hours = absint( $_POST['yak_cache_hours'] );
+		if ( $cache_hours < 1 ) {
+			$cache_hours = 1;
+		}
+		if ( $cache_hours > 24 ) {
+			$cache_hours = 24;
+		}
+		update_option( 'yak_events_cache_hours', $cache_hours );
+		echo '<div class="notice notice-success"><p>Settings saved!</p></div>';
+	}
+	
+	// Get current settings
+	$cache_hours = get_option( 'yak_events_cache_hours', 2 );
+	$last_recalc = get_transient( 'yak_events_last_recalc' );
+	$logs = get_option( 'yak_events_log', array() );
+	
+	?>
+	<div class="wrap">
+		<h1>🎯 Events Calendar Settings & Debug</h1>
+		<p style="background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+			<strong>⚠️ Administrator Only:</strong> This page is only visible to WordPress Administrators. 
+			Other user roles (Editors, Authors, etc.) cannot access this page.
+		</p>
+		
+		<!-- Settings Section -->
+		<div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+			<h2>⚙️ Cache Settings</h2>
+			<form method="post" action="">
+				<?php wp_nonce_field( 'yak_save_settings' ); ?>
+				<table class="form-table">
+					<tr>
+						<th scope="row">
+							<label for="yak_cache_hours">Timestamp Recalculation Interval</label>
+						</th>
+						<td>
+							<input type="number" name="yak_cache_hours" id="yak_cache_hours" 
+							       value="<?php echo esc_attr( $cache_hours ); ?>" 
+							       min="1" max="24" step="1" style="width: 80px;">
+							<span class="description">hours (between 1 and 24)</span>
+							<p class="description">
+								How often to recalculate event timestamps for multi-session events. 
+								Lower values = more accurate but more server load. 
+								Recommended: 2-3 hours.
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">Last Recalculation</th>
+						<td>
+							<?php if ( $last_recalc ) : ?>
+								<strong><?php echo wp_date( 'F j, Y g:i a', $last_recalc ); ?></strong>
+								<p class="description">
+									Next recalculation will trigger after: 
+									<strong><?php echo wp_date( 'F j, Y g:i a', $last_recalc + yak_get_cache_interval() ); ?></strong>
+								</p>
+							<?php else : ?>
+								<em>Never (will trigger on next page load)</em>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+				<p class="submit">
+					<input type="submit" name="yak_save_settings" class="button button-primary" value="Save Settings">
+				</p>
+			</form>
+			
+			<hr>
+			
+			<h3>Manual Triggers</h3>
+			<form method="post" action="" style="display: inline;">
+				<?php wp_nonce_field( 'yak_force_recalc' ); ?>
+				<input type="submit" name="yak_force_recalc" class="button button-secondary" 
+				       value="🔄 Force Recalculation Now" 
+				       onclick="return confirm('This will recalculate timestamps for all events in the background. Continue?');">
+			</form>
+			<p class="description">Force an immediate timestamp recalculation for all events (runs in background).</p>
+		</div>
+		
+		<!-- Event Timestamps Debug -->
+		<div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+			<h2>📊 Event Timestamps</h2>
+			<p>Current timestamp for each event (what WordPress uses for sorting):</p>
+			<?php yak_render_event_timestamps_table(); ?>
+		</div>
+		
+		<!-- Activity Log -->
+		<div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+			<h2>📋 Activity Log</h2>
+			<p>Showing all stored log entries (system keeps last 100).</p>
+			<form method="post" action="" style="margin-bottom: 15px;">
+				<?php wp_nonce_field( 'yak_clear_log' ); ?>
+				<input type="submit" name="yak_clear_log" class="button button-secondary" value="Clear Log">
+			</form>
+			
+			<?php if ( empty( $logs ) ) : ?>
+				<p><em>No log entries yet.</em></p>
+			<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th width="180">Timestamp</th>
+							<th>Event</th>
+							<th>Details</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $logs as $log ) : ?>
+							<tr>
+								<td><code><?php echo esc_html( $log['datetime'] ); ?></code></td>
+								<td><strong><?php echo esc_html( $log['message'] ); ?></strong></td>
+								<td>
+									<?php if ( ! empty( $log['context'] ) ) : ?>
+										<details>
+											<summary style="cursor: pointer;">View details</summary>
+											<pre style="margin-top: 10px; padding: 10px; background: #f5f5f5; overflow-x: auto;"><?php 
+												echo esc_html( print_r( $log['context'], true ) ); 
+											?></pre>
+										</details>
+									<?php else : ?>
+										<em>No additional details</em>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<p style="margin-top: 15px;"><em>Showing all <?php echo count( $logs ); ?> log entries.</em></p>
+			<?php endif; ?>
+		</div>
+		
+		<!-- Full Event Metadata Report -->
+		<div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+			<h2>📝 Complete Event Metadata Report</h2>
+			<p>Comprehensive view of all event data including date/time info, location, metadata, and sessions.</p>
+			<?php echo yak_events_debug_output(); ?>
+		</div>
+	</div>
+	<?php
+}
+
+/**
+ * Render event timestamps debug table
+ */
+function yak_render_event_timestamps_table() {
+	$args = array(
+		'numberposts' => -1,
+		'post_type'   => 'events',
+		'post_status' => 'publish',
+		'meta_key'    => 'event_unix_timestamp',
+		'orderby'     => 'meta_value_num',
+		'order'       => 'ASC',
+	);
+	
+	$events = get_posts( $args );
+	$now = current_time( 'timestamp' );
+	
+	if ( empty( $events ) ) {
+		echo '<p><em>No events found.</em></p>';
+		return;
+	}
+	
+	?>
+	<table class="widefat striped">
+		<thead>
+			<tr>
+				<th>Event Title</th>
+				<th>Type</th>
+				<th>Unix Timestamp</th>
+				<th>Human Readable Time</th>
+				<th>Status</th>
+				<th>Session Info</th>
+			</tr>
+		</thead>
+		<tbody>
+			<?php foreach ( $events as $event ) : 
+				$timestamp = (int) get_field( 'event_unix_timestamp', $event->ID );
+				$has_sessions = (bool) get_field( 'event_has_sessions', $event->ID );
+				$is_past = $timestamp && $timestamp < $now;
+				$sessions = $has_sessions ? get_field( 'event_sessions', $event->ID ) : array();
+				$bg_color = $is_past ? '#ffebee' : '#e8f5e9';
+			?>
+				<tr style="background-color: <?php echo $bg_color; ?>;">
+					<td>
+						<strong><?php echo esc_html( $event->post_title ); ?></strong><br>
+						<small><a href="<?php echo get_edit_post_link( $event->ID ); ?>" target="_blank">Edit</a></small>
+					</td>
+					<td>
+						<?php if ( $has_sessions ) : ?>
+							<span style="background: #2196f3; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">
+								MULTI-SESSION
+							</span>
+						<?php else : ?>
+							<span style="background: #9e9e9e; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">
+								SINGLE
+							</span>
+						<?php endif; ?>
+					</td>
+					<td><code><?php echo $timestamp ? $timestamp : 'Not set'; ?></code></td>
+					<td>
+						<?php if ( $timestamp ) : ?>
+							<strong><?php echo wp_date( 'F j, Y', $timestamp ); ?></strong><br>
+							<span style="color: #666;"><?php echo wp_date( 'g:i a', $timestamp ); ?></span><br>
+							<small style="color: #999;">UTC: <?php echo gmdate( 'Y-m-d H:i', $timestamp ); ?></small>
+						<?php else : ?>
+							<em>No timestamp</em>
+						<?php endif; ?>
+					</td>
+					<td>
+						<?php if ( $is_past ) : ?>
+							<span style="color: #d32f2f;">🔴 PAST</span>
+						<?php else : ?>
+							<span style="color: #388e3c;">🟢 UPCOMING</span>
+						<?php endif; ?>
+					</td>
+					<td>
+						<?php if ( $has_sessions && ! empty( $sessions ) ) : ?>
+							<details>
+								<summary style="cursor: pointer;">
+									<?php echo count( $sessions ); ?> session(s)
+								</summary>
+								<ul style="margin-top: 8px; font-size: 12px;">
+									<?php foreach ( $sessions as $i => $session ) : 
+										$session_all_day = isset( $session['session_all_day'] ) ? (bool) $session['session_all_day'] : false;
+										
+										if ( $session_all_day ) {
+											$start_str = isset( $session['session_start_date'] ) ? $session['session_start_date'] : '';
+											$end_str = isset( $session['session_end_date'] ) ? $session['session_end_date'] : '';
+										} else {
+											$start_str = isset( $session['session_start_datetime'] ) ? $session['session_start_datetime'] : '';
+											$end_str = isset( $session['session_end_datetime'] ) ? $session['session_end_datetime'] : '';
+										}
+										
+										$desc = isset( $session['session_description'] ) ? $session['session_description'] : '';
+									?>
+										<li>
+											<strong>Session <?php echo $i + 1; ?>:</strong> 
+											<?php echo esc_html( $start_str ); ?>
+											<?php if ( $end_str && $end_str !== $start_str ) : ?>
+												→ <?php echo esc_html( $end_str ); ?>
+											<?php endif; ?>
+											<?php if ( $session_all_day ) : ?>
+												<em>(all day)</em>
+											<?php endif; ?>
+											<?php if ( $desc ) : ?>
+												<br><em><?php echo esc_html( wp_trim_words( $desc, 10 ) ); ?></em>
+											<?php endif; ?>
+										</li>
+									<?php endforeach; ?>
+								</ul>
+							</details>
+						<?php else : ?>
+							<em>—</em>
+						<?php endif; ?>
+					</td>
+				</tr>
+			<?php endforeach; ?>
+		</tbody>
+	</table>
+	<?php
+}

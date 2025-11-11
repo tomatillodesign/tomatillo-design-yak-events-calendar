@@ -1,14 +1,19 @@
-
-(function () {
-    // Check if the element with the given ID exists
+// Wrap everything in IIFE to prevent duplicate declarations
+(function() {
+    'use strict';
+    
+    // Check if the element exists
     if (!document.getElementById('clb-events-calendar-view-root')) {
-        // Exit the script if the element is not found
         return;
     }
-
-})();
-
-
+    
+    // Check if already initialized
+    if (window.clbCalendarInitialized) {
+        return;
+    }
+    
+    // Mark as initialized
+    window.clbCalendarInitialized = true;
 
 // a few helpers
 function daysInMonth(month, year) {
@@ -216,20 +221,40 @@ const clbCreateMonth = function(month, year) {
                 const sessionAllDay = session['session_all_day'];
                 const sessionStart = sessionAllDay ? session['session_start_date'] : session['session_start_datetime'];
                 if (!sessionStart) return false;
+                
+                // Parse date string - ACF format is "November 9, 2025" or "November 9, 2025 10:00 am"
                 const sessionStartObj = new Date(sessionStart);
+                
+                // Check if date is valid
+                if (isNaN(sessionStartObj.getTime())) {
+                    return false;
+                }
+                
                 const sessionStartTimestamp = sessionStartObj.getTime();
                 return ((sessionStartTimestamp >= monthOpeningTimestamp) && (sessionStartTimestamp <= monthClosingTimestamp));
             });
         } else {
             // Handle both all-day and timed events
             const isAllDay = event['event_all_day'];
-            const eventStartDateString = isAllDay ? event['event_start_date'] : event['event_start_date_time'];
             
-            if (!eventStartDateString) return false;
-            
-            const eventStartDateObj = new Date(eventStartDateString);
-            const eventStartTimestamp = eventStartDateObj.getTime();
-            return ((eventStartTimestamp >= monthOpeningTimestamp) && (eventStartTimestamp <= monthClosingTimestamp));
+            if (isAllDay) {
+                // For all-day events, parse the date string directly (avoids timezone issues)
+                const eventStartDateString = event['event_start_date'];
+                if (!eventStartDateString) return false;
+                
+                // Parse "November 12, 2025" format
+                const eventStartDateObj = new Date(eventStartDateString + ' 00:00:00');
+                const eventStartTimestamp = eventStartDateObj.getTime();
+                return ((eventStartTimestamp >= monthOpeningTimestamp) && (eventStartTimestamp <= monthClosingTimestamp));
+            } else {
+                // For timed events, use datetime string
+                const eventStartDateString = event['event_start_date_time'];
+                if (!eventStartDateString) return false;
+                
+                const eventStartDateObj = new Date(eventStartDateString);
+                const eventStartTimestamp = eventStartDateObj.getTime();
+                return ((eventStartTimestamp >= monthOpeningTimestamp) && (eventStartTimestamp <= monthClosingTimestamp));
+            }
         }
 
     } );
@@ -316,24 +341,41 @@ const clbCreateMonth = function(month, year) {
                             // Handle both all-day and timed events
                             const isAllDay = event['event_all_day'];
                             
-                            // event start
-                            const eventStartDateString = isAllDay ? event['event_start_date'] : event['event_start_date_time'];
-                            if (!eventStartDateString) return false;
-                            const eventStartDateObj = new Date(eventStartDateString);
-                            const eventStartTimestamp = eventStartDateObj.getTime();
-
-                            // event end
-                            const eventEndDateString = isAllDay ? event['event_end_date'] : event['event_end_date_time'];
-                            if (!eventEndDateString) return false;
-                            const eventEndDateObj = new Date(eventEndDateString);
-                            const eventEndTimestamp = eventEndDateObj.getTime();
-
-                            // Check if event starts today
-                            if((eventStartTimestamp >= startOfDayTimestamp) && (eventStartTimestamp <= endOfDayTimestamp)) { showEvent = true; }
-                            // Check if event ends today
-                            if((eventEndTimestamp >= startOfDayTimestamp) && (eventEndTimestamp <= endOfDayTimestamp)) { showEvent = true; } 
-                            // Check if event spans across today (starts before and ends after)
-                            if((eventStartTimestamp < startOfDayTimestamp) && (eventEndTimestamp > endOfDayTimestamp)) { showEvent = true; }
+                            if (isAllDay) {
+                                // For all-day events, parse date strings directly (avoids timezone issues)
+                                const eventStartDateString = event['event_start_date'];
+                                const eventEndDateString = event['event_end_date'];
+                                if (!eventStartDateString || !eventEndDateString) return false;
+                                
+                                const eventStartDateObj = new Date(eventStartDateString + ' 00:00:00');
+                                const eventStartTimestamp = eventStartDateObj.getTime();
+                                const eventEndDateObj = new Date(eventEndDateString + ' 23:59:59');
+                                const eventEndTimestamp = eventEndDateObj.getTime();
+                                
+                                // Check if event starts today
+                                if((eventStartTimestamp >= startOfDayTimestamp) && (eventStartTimestamp <= endOfDayTimestamp)) { showEvent = true; }
+                                // Check if event ends today
+                                if((eventEndTimestamp >= startOfDayTimestamp) && (eventEndTimestamp <= endOfDayTimestamp)) { showEvent = true; } 
+                                // Check if event spans across today (starts before and ends after)
+                                if((eventStartTimestamp < startOfDayTimestamp) && (eventEndTimestamp > endOfDayTimestamp)) { showEvent = true; }
+                            } else {
+                                // For timed events, use datetime strings
+                                const eventStartDateString = event['event_start_date_time'];
+                                const eventEndDateString = event['event_end_date_time'];
+                                if (!eventStartDateString || !eventEndDateString) return false;
+                                
+                                const eventStartDateObj = new Date(eventStartDateString);
+                                const eventStartTimestamp = eventStartDateObj.getTime();
+                                const eventEndDateObj = new Date(eventEndDateString);
+                                const eventEndTimestamp = eventEndDateObj.getTime();
+                                
+                                // Check if event starts today
+                                if((eventStartTimestamp >= startOfDayTimestamp) && (eventStartTimestamp <= endOfDayTimestamp)) { showEvent = true; }
+                                // Check if event ends today
+                                if((eventEndTimestamp >= startOfDayTimestamp) && (eventEndTimestamp <= endOfDayTimestamp)) { showEvent = true; } 
+                                // Check if event spans across today (starts before and ends after)
+                                if((eventStartTimestamp < startOfDayTimestamp) && (eventEndTimestamp > endOfDayTimestamp)) { showEvent = true; }
+                            }
                         }
 
                         return showEvent;
@@ -405,19 +447,27 @@ const clbCreateMonth = function(month, year) {
 
 
 const clbInitializeCalendar = function() {
-
-    ///////////// create new divs in a grid
-    const newDiv = document.createElement("div");
-    newDiv.classList.add('clb-calendar-day');
+    const root = document.getElementById('clb-events-calendar-view-root');
+    if (!root) {
+        return;
+    }
+    
+    // Clear any existing content (like admin preview grid)
+    root.innerHTML = '';
 
     const now = new Date();
     const currentMonthValue = now.getMonth();
     const currentYearValue = now.getFullYear();
 
     clbCreateMonth( currentMonthValue, currentYearValue);
-
 }
-clbInitializeCalendar(); // run once on page load
+
+// Run once on page load with a slight delay to ensure DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', clbInitializeCalendar);
+} else {
+    clbInitializeCalendar();
+}
 
 
 // add btn event listeners & actions
@@ -527,4 +577,6 @@ const clbTodayMonthListenerNext = function() {
     element.addEventListener("click", clbToday);
 }
 clbTodayMonthListenerNext();
+
+})(); // End IIFE
 

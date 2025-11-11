@@ -40,8 +40,53 @@ function clb_show_event_info() {
             $event_start_date_time = get_field('event_start_date_time', $post_id);
             $event_end_date_time = get_field('event_end_date_time', $post_id);
             if( $event_start_date_time ) {
-                $formatted_date = yak_format_event_date_range( $event_start_date_time, $event_end_date_time, false );
-                $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $formatted_date . '</div>';
+                // Parse dates to separate date and time
+                $start_obj = DateTime::createFromFormat( 'F j, Y g:i a', $event_start_date_time, wp_timezone() );
+                $end_obj = $event_end_date_time ? DateTime::createFromFormat( 'F j, Y g:i a', $event_end_date_time, wp_timezone() ) : null;
+                
+                if( $start_obj ) {
+                    // Display Date
+                    if( $end_obj && $start_obj->format('Y-m-d') !== $end_obj->format('Y-m-d') ) {
+                        // Multi-day event - show date range
+                        if( $start_obj->format('Y') === $end_obj->format('Y') ) {
+                            // Same year
+                            if( $start_obj->format('Y-m') === $end_obj->format('Y-m') ) {
+                                // Same month: November 12-13, 2025
+                                $date_display = $start_obj->format('F j') . '-' . $end_obj->format('j, Y');
+                            } else {
+                                // Different months: November 12 – December 2, 2025
+                                $date_display = $start_obj->format('F j') . ' – ' . $end_obj->format('F j, Y');
+                            }
+                        } else {
+                            // Different years: December 30, 2024 – January 2, 2025
+                            $date_display = $start_obj->format('F j, Y') . ' – ' . $end_obj->format('F j, Y');
+                        }
+                    } else {
+                        // Same day or no end date
+                        $date_display = $start_obj->format('F j, Y');
+                    }
+                    $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $date_display . '</div>';
+                    
+                    // Display Time
+                    if( $end_obj ) {
+                        if( $start_obj->format('Y-m-d') === $end_obj->format('Y-m-d') ) {
+                            // Same day: 12:00 am – 2:00 pm
+                            $time_display = $start_obj->format('g:i a') . ' – ' . $end_obj->format('g:i a');
+                        } else {
+                            // Multi-day: 12:00 am – 2:00 pm (on end date)
+                            $time_display = $start_obj->format('g:i a') . ' – ' . $end_obj->format('g:i a');
+                        }
+                        $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Time:</strong> ' . $time_display . '</div>';
+                    } else {
+                        // Only start time
+                        $time_display = $start_obj->format('g:i a');
+                        $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Time:</strong> ' . $time_display . '</div>';
+                    }
+                } else {
+                    // Fallback if parsing fails
+                    $formatted_date = yak_format_event_date_range( $event_start_date_time, $event_end_date_time, false );
+                    $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $formatted_date . '</div>';
+                }
             }
         }
     }
@@ -53,6 +98,12 @@ function clb_show_event_info() {
         $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Location:</strong> Online</div>';
     } elseif( $event_location) {
         $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Location:</strong> ' . $event_location . '</div>';
+    }
+
+    // event organizer
+    $event_organizer = get_field('event_organizer', $post_id);
+    if( $event_organizer ) {
+        $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Organizer:</strong> ' . esc_html($event_organizer) . '</div>';
     }
 
     $custom_taxonomies = [];
@@ -86,49 +137,105 @@ function clb_show_event_info() {
         echo $event_warning . '<div class="clb-event-metabox-wrapper' . $custom_classes . '">' . $event_metabox . '</div>';
     }
     
-    // Display event sessions if they exist
+    // Display event sessions if multi-session is enabled AND there are populated sessions
+    $has_sessions = get_field('event_has_sessions', $post_id);
     $event_sessions = get_field('event_sessions', $post_id);
-    if( $event_sessions && is_array($event_sessions) ) {
-        echo '<div class="clb-event-sessions-wrapper">';
-        echo '<h3 class="clb-event-sessions-title">Event Schedule</h3>';
-        echo '<div class="clb-event-sessions-list">';
-        
+    
+    if( $has_sessions && $event_sessions && is_array($event_sessions) && count($event_sessions) > 0 ) {
+        // Check if at least one session has data
+        $has_valid_sessions = false;
         foreach( $event_sessions as $session ) {
             $session_all_day = $session['session_all_day'] ?? false;
-            $session_desc = $session['session_description'] ?? '';
-            
-            // Handle all-day vs timed sessions
             if( $session_all_day ) {
-                $session_start = $session['session_start_date'] ?? '';
-                $session_end = $session['session_end_date'] ?? '';
-                if( $session_start ) {
-                    $formatted_session = yak_format_event_date_range( $session_start, $session_end, true );
-                    
-                    echo '<div class="clb-single-session">';
-                    echo '<div class="clb-session-datetime">' . esc_html($formatted_session) . '</div>';
-                    if( $session_desc ) {
-                        echo '<div class="clb-session-description">' . esc_html($session_desc) . '</div>';
-                    }
-                    echo '</div>';
+                if( !empty($session['session_start_date']) ) {
+                    $has_valid_sessions = true;
+                    break;
                 }
             } else {
-                $session_start = $session['session_start_datetime'] ?? '';
-                $session_end = $session['session_end_datetime'] ?? '';
-                if( $session_start && $session_end ) {
-                    $formatted_session = yak_format_event_date_range( $session_start, $session_end, false );
-                    
-                    echo '<div class="clb-single-session">';
-                    echo '<div class="clb-session-datetime">' . esc_html($formatted_session) . '</div>';
-                    if( $session_desc ) {
-                        echo '<div class="clb-session-description">' . esc_html($session_desc) . '</div>';
-                    }
-                    echo '</div>';
+                if( !empty($session['session_start_datetime']) ) {
+                    $has_valid_sessions = true;
+                    break;
                 }
             }
         }
         
-        echo '</div>';
-        echo '</div>';
+        if( $has_valid_sessions ) {
+            echo '<div class="clb-event-sessions-wrapper">';
+            echo '<h3 class="clb-event-sessions-title">Event Schedule</h3>';
+            echo '<div class="clb-event-sessions-list">';
+            
+            foreach( $event_sessions as $session ) {
+                $session_all_day = $session['session_all_day'] ?? false;
+                $session_desc = $session['session_description'] ?? '';
+                
+                // Handle all-day vs timed sessions
+                if( $session_all_day ) {
+                    $session_start = $session['session_start_date'] ?? '';
+                    $session_end = $session['session_end_date'] ?? '';
+                    if( $session_start ) {
+                        $formatted_session = yak_format_event_date_range( $session_start, $session_end, true );
+                        
+                        echo '<div class="clb-single-session">';
+                        echo '<div class="clb-session-datetime">' . esc_html($formatted_session) . '</div>';
+                        if( $session_desc ) {
+                            echo '<div class="clb-session-description">' . esc_html($session_desc) . '</div>';
+                        }
+                        echo '</div>';
+                    }
+                } else {
+                    $session_start = $session['session_start_datetime'] ?? '';
+                    $session_end = $session['session_end_datetime'] ?? '';
+                    if( $session_start ) {
+                        // Parse dates to separate date and time
+                        $start_obj = DateTime::createFromFormat( 'F j, Y g:i a', $session_start, wp_timezone() );
+                        $end_obj = $session_end ? DateTime::createFromFormat( 'F j, Y g:i a', $session_end, wp_timezone() ) : null;
+                        
+                        echo '<div class="clb-single-session">';
+                        
+                        if( $start_obj ) {
+                            // Display Date
+                            if( $end_obj && $start_obj->format('Y-m-d') !== $end_obj->format('Y-m-d') ) {
+                                // Multi-day session - show date range
+                                if( $start_obj->format('Y') === $end_obj->format('Y') ) {
+                                    if( $start_obj->format('Y-m') === $end_obj->format('Y-m') ) {
+                                        $date_display = $start_obj->format('F j') . '-' . $end_obj->format('j, Y');
+                                    } else {
+                                        $date_display = $start_obj->format('F j') . ' – ' . $end_obj->format('F j, Y');
+                                    }
+                                } else {
+                                    $date_display = $start_obj->format('F j, Y') . ' – ' . $end_obj->format('F j, Y');
+                                }
+                            } else {
+                                // Same day
+                                $date_display = $start_obj->format('F j, Y');
+                            }
+                            echo '<div class="clb-session-datetime"><strong>Date:</strong> ' . esc_html($date_display) . '</div>';
+                            
+                            // Display Time
+                            if( $end_obj ) {
+                                $time_display = $start_obj->format('g:i a') . ' – ' . $end_obj->format('g:i a');
+                                echo '<div class="clb-session-datetime"><strong>Time:</strong> ' . esc_html($time_display) . '</div>';
+                            } else {
+                                $time_display = $start_obj->format('g:i a');
+                                echo '<div class="clb-session-datetime"><strong>Time:</strong> ' . esc_html($time_display) . '</div>';
+                            }
+                        } else {
+                            // Fallback
+                            $formatted_session = yak_format_event_date_range( $session_start, $session_end, false );
+                            echo '<div class="clb-session-datetime">' . esc_html($formatted_session) . '</div>';
+                        }
+                        
+                        if( $session_desc ) {
+                            echo '<div class="clb-session-description">' . esc_html($session_desc) . '</div>';
+                        }
+                        echo '</div>';
+                    }
+                }
+            }
+            
+            echo '</div>';
+            echo '</div>';
+        }
     }
 
 }
