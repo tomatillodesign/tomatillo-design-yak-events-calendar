@@ -111,15 +111,75 @@ foreach ( $event_ids as $post_id ) {
 
 	// --------- CONDITIONALS ----------
 	$event_unix_timestamp = (int) get_field( 'event_unix_timestamp', $post_id );
+	$has_sessions = get_field( 'event_has_sessions', $post_id );
+	
+	// For multi-session events, check if ANY session is upcoming/past
+	if ( $has_sessions ) {
+		$sessions = get_field( 'event_sessions', $post_id );
+		$has_future_session = false;
+		$has_past_session = false;
+		
+		if ( $sessions && is_array( $sessions ) ) {
+			foreach ( $sessions as $session ) {
+				$session_all_day = $session['session_all_day'] ?? false;
+				
+				// Get appropriate date field based on all-day status
+				if ( $session_all_day ) {
+					$session_start = $session['session_start_date'] ?? '';
+				} else {
+					$session_start = $session['session_start_datetime'] ?? '';
+				}
+				
+				if ( $session_start ) {
+					$session_timestamp = strtotime( $session_start );
+					if ( $session_timestamp >= $now ) {
+						$has_future_session = true;
+					} else {
+						$has_past_session = true;
+					}
+				}
+			}
+		}
+		
+		// Filter based on query type
+		if ( $event_query_type === 'upcoming' && ! $has_future_session ) { continue; }
+		if ( $event_query_type === 'past' && ! $has_past_session ) { continue; }
+		
+		// Past-year limiter for multi-session events
+		if ( $event_query_type === 'past' && $event_query_results_past === 'this_year' ) {
+			$start_of_this_year = strtotime( 'first day of January this year 00:00:00' );
+			$has_session_this_year = false;
+			foreach ( $sessions as $session ) {
+				$session_all_day = $session['session_all_day'] ?? false;
+				
+				// Get appropriate date field based on all-day status
+				if ( $session_all_day ) {
+					$session_start = $session['session_start_date'] ?? '';
+				} else {
+					$session_start = $session['session_start_datetime'] ?? '';
+				}
+				
+				if ( $session_start ) {
+					$session_timestamp = strtotime( $session_start );
+					if ( $session_timestamp >= $start_of_this_year ) {
+						$has_session_this_year = true;
+						break;
+					}
+				}
+			}
+			if ( ! $has_session_this_year ) { continue; }
+		}
+	} else {
+		// Standard event filtering
+		// upcoming vs past filters
+		if ( ( $event_query_type === 'upcoming' ) && ( $event_unix_timestamp < $now ) ) { continue; }
+		if ( ( $event_query_type === 'past' )     && ( $event_unix_timestamp > $now ) ) { continue; }
 
-	// upcoming vs past filters
-	if ( ( $event_query_type === 'upcoming' ) && ( $event_unix_timestamp < $now ) ) { continue; }
-	if ( ( $event_query_type === 'past' )     && ( $event_unix_timestamp > $now ) ) { continue; }
-
-	// past-year limiter
-	if ( $event_query_type === 'past' && $event_query_results_past === 'this_year' ) {
-		$start_of_this_year = strtotime( 'first day of January this year 00:00:00' );
-		if ( $event_unix_timestamp < $start_of_this_year ) { continue; }
+		// past-year limiter
+		if ( $event_query_type === 'past' && $event_query_results_past === 'this_year' ) {
+			$start_of_this_year = strtotime( 'first day of January this year 00:00:00' );
+			if ( $event_unix_timestamp < $start_of_this_year ) { continue; }
+		}
 	}
 	// --------- END CONDITIONALS ----------
 
@@ -164,8 +224,9 @@ ob_start();
 	<section class="clb-events-list" role="region" aria-labelledby="clb-events-list-title">
         <?php if ( $featured_html ) : ?>
             <h3 id="clb-events-list-title" class="yak-section-heading">All Events</h3>
+        <?php else : ?>
+            <h3 id="clb-events-list-title" class="screen-reader-text">All Events</h3>
         <?php endif; ?>
-		<h3 id="clb-events-list-title" class="screen-reader-text">All Events</h3>
 		<div class="clb-events-list__grid">
 			<?php echo $regular_html; ?>
 		</div>

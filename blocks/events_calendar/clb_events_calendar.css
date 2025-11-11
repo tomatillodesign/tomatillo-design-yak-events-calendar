@@ -14,6 +14,39 @@
     max-width: 50%;
 }
 
+.clb-event-sessions-wrapper {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+.clb-event-sessions-title {
+    margin-bottom: 1rem;
+    font-size: var(--yak-font-size-lg);
+}
+
+.clb-event-sessions-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.clb-single-session {
+    padding: 1rem;
+    background: var(--yak-color-muted);
+    border-radius: var(--yak-radius);
+    border-left: 4px solid var(--yak-color-primary);
+}
+
+.clb-session-datetime {
+    font-weight: 700;
+    font-size: var(--yak-font-size-md);
+    margin-bottom: 0.5rem;
+}
+
+.clb-session-description {
+    font-style: italic;
+    color: var(--yak-color-text-muted);
+}
+
 
 
 
@@ -130,6 +163,12 @@
 .clb-calendar-single-event-wrapper a:hover {
     cursor: pointer;
     color: var(--yak-color-primary);
+}
+
+.clb-calendar-session-time {
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.8;
 }
 
 .clb-calendar-next-actions-wrapper,

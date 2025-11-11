@@ -4,7 +4,7 @@ Plugin Name: Tomatillo Design ~ Yak Events Calendar
 Description: Custom Events Calendar for WordPress with CPT + Block. Requires ACF installed and activated.
 Author: Chris Liu-Beers, Tomatillo Design
 Author URI: http://www.tomatillodesign.com
-Version: 1.1
+Version: 1.2
 License: GPL v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 */
@@ -173,10 +173,15 @@ add_action( 'acf/include_fields', function() {
 						'operator' => '==',
 						'value'    => '0',
 					),
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '!=',
+						'value'    => '1',
+					),
 				),
 			),
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '50',
 				'class' => '',
 				'id'    => '',
 			),
@@ -200,10 +205,15 @@ add_action( 'acf/include_fields', function() {
 						'operator' => '==',
 						'value'    => '0',
 					),
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '!=',
+						'value'    => '1',
+					),
 				),
 			),
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '50',
 				'class' => '',
 				'id'    => '',
 			),
@@ -227,10 +237,15 @@ add_action( 'acf/include_fields', function() {
 						'operator' => '==',
 						'value'    => '1',
 					),
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '!=',
+						'value'    => '1',
+					),
 				),
 			),
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '50',
 				'class' => '',
 				'id'    => '',
 			),
@@ -254,10 +269,15 @@ add_action( 'acf/include_fields', function() {
 						'operator' => '==',
 						'value'    => '1',
 					),
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '!=',
+						'value'    => '1',
+					),
 				),
 			),
 			'wrapper' => array(
-				'width' => '25',
+				'width' => '50',
 				'class' => '',
 				'id'    => '',
 			),
@@ -267,6 +287,56 @@ add_action( 'acf/include_fields', function() {
 			'allow_in_bindings' => 1,
 		),
 		array(
+			'key' => 'field_yak_event_date_description',
+			'label' => 'Date Description for Visitors',
+			'name'  => 'event_date_description',
+			'aria-label' => '',
+			'type'  => 'text',
+			'instructions' => 'Describe when this event happens. Examples: "Three days: June 10-12, 2025" or "Saturdays in March (3rd, 10th, 17th, 24th)" or "Every Tuesday in Fall 2025" or "Multiple dates - see schedule below"',
+			'required' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '==',
+						'value'    => '1',
+					),
+				),
+			),
+			'wrapper' => array(
+				'width' => '100',
+				'class' => '',
+				'id'    => '',
+			),
+			'default_value' => '',
+			'maxlength' => '',
+			'placeholder' => 'e.g., Multiple dates throughout June 2025',
+			'prepend' => '',
+			'append' => '',
+			'allow_in_bindings' => 1,
+		),
+		array(
+			'key' => 'field_yak_event_has_sessions',
+			'label' => 'Multi-Session Event',
+			'name'  => 'event_has_sessions',
+			'aria-label' => '',
+			'type'  => 'true_false',
+			'instructions' => 'For events with multiple time slots (conferences, workshops, etc.). Enable to add individual sessions below.',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '100',
+				'class' => '',
+				'id'    => '',
+			),
+			'message' => '',
+			'default_value' => 0,
+			'allow_in_bindings' => 1,
+			'ui' => 1,
+			'ui_on_text'  => '',
+			'ui_off_text' => '',
+		),
+		array(
 			'key' => 'field_yak_event_all_day',
 			'label' => 'All Day?',
 			'name'  => 'event_all_day',
@@ -274,9 +344,17 @@ add_action( 'acf/include_fields', function() {
 			'type'  => 'true_false',
 			'instructions' => '',
 			'required' => 0,
-			'conditional_logic' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '!=',
+						'value'    => '1',
+					),
+				),
+			),
 			'wrapper' => array(
-				'width' => '10',
+				'width' => '33.33',
 				'class' => '',
 				'id'    => '',
 			),
@@ -300,7 +378,7 @@ add_action( 'acf/include_fields', function() {
 			'required' => 0,
 			'conditional_logic' => 0,
 			'wrapper' => array(
-				'width' => '15',
+				'width' => '33.33',
 				'class' => '',
 				'id' => '',
 			),
@@ -321,7 +399,7 @@ add_action( 'acf/include_fields', function() {
 			'required' => 0,
 			'conditional_logic' => 0,
 			'wrapper' => array(
-				'width' => '15',
+				'width' => '33.33',
 				'class' => '',
 				'id' => '',
 			),
@@ -441,6 +519,194 @@ add_action( 'acf/include_fields', function() {
 			),
 		),
 		array(
+			'key' => 'field_yak_event_sessions',
+			'label' => 'Event Sessions / Schedule',
+			'name' => 'event_sessions',
+			'aria-label' => '',
+			'type' => 'repeater',
+			'instructions' => 'Add each session for this multi-session event. Sessions can span multiple days.',
+			'required' => 0,
+			'conditional_logic' => array(
+				array(
+					array(
+						'field'    => 'field_yak_event_has_sessions',
+						'operator' => '==',
+						'value'    => '1',
+					),
+				),
+			),
+			'wrapper' => array(
+				'width' => '',
+				'class' => '',
+				'id' => '',
+			),
+			'layout' => 'block',
+			'pagination' => 0,
+			'min' => 0,
+			'max' => 0,
+			'collapsed' => '',
+			'button_label' => 'Add Session',
+			'rows_per_page' => 20,
+			'sub_fields' => array(
+				array(
+					'key' => 'field_yak_session_all_day',
+					'label' => 'All Day',
+					'name' => 'session_all_day',
+					'aria-label' => '',
+					'type' => 'true_false',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '8',
+						'class' => '',
+						'id' => '',
+					),
+					'message' => '',
+					'default_value' => 0,
+					'allow_in_bindings' => 0,
+					'ui' => 1,
+					'ui_on_text'  => '',
+					'ui_off_text' => '',
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+				array(
+					'key' => 'field_yak_session_start_datetime',
+					'label' => 'Session Start Date & Time',
+					'name' => 'session_start_datetime',
+					'aria-label' => '',
+					'type' => 'date_time_picker',
+					'instructions' => '',
+					'required' => 1,
+					'conditional_logic' => array(
+						array(
+							array(
+								'field'    => 'field_yak_session_all_day',
+								'operator' => '!=',
+								'value'    => '1',
+							),
+						),
+					),
+					'wrapper' => array(
+						'width' => '25',
+						'class' => '',
+						'id' => '',
+					),
+					'display_format' => 'F j, Y g:i a',
+					'return_format' => 'F j, Y g:i a',
+					'first_day' => 0,
+					'allow_in_bindings' => 0,
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+				array(
+					'key' => 'field_yak_session_end_datetime',
+					'label' => 'Session End Date & Time',
+					'name' => 'session_end_datetime',
+					'aria-label' => '',
+					'type' => 'date_time_picker',
+					'instructions' => '',
+					'required' => 1,
+					'conditional_logic' => array(
+						array(
+							array(
+								'field'    => 'field_yak_session_all_day',
+								'operator' => '!=',
+								'value'    => '1',
+							),
+						),
+					),
+					'wrapper' => array(
+						'width' => '25',
+						'class' => '',
+						'id' => '',
+					),
+					'display_format' => 'F j, Y g:i a',
+					'return_format' => 'F j, Y g:i a',
+					'first_day' => 0,
+					'allow_in_bindings' => 0,
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+				array(
+					'key' => 'field_yak_session_start_date',
+					'label' => 'Session Start Date',
+					'name' => 'session_start_date',
+					'aria-label' => '',
+					'type' => 'date_picker',
+					'instructions' => '',
+					'required' => 1,
+					'conditional_logic' => array(
+						array(
+							array(
+								'field'    => 'field_yak_session_all_day',
+								'operator' => '==',
+								'value'    => '1',
+							),
+						),
+					),
+					'wrapper' => array(
+						'width' => '25',
+						'class' => '',
+						'id' => '',
+					),
+					'display_format' => 'F j, Y',
+					'return_format' => 'F j, Y',
+					'first_day' => 0,
+					'allow_in_bindings' => 0,
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+				array(
+					'key' => 'field_yak_session_end_date',
+					'label' => 'Session End Date',
+					'name' => 'session_end_date',
+					'aria-label' => '',
+					'type' => 'date_picker',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => array(
+						array(
+							array(
+								'field'    => 'field_yak_session_all_day',
+								'operator' => '==',
+								'value'    => '1',
+							),
+						),
+					),
+					'wrapper' => array(
+						'width' => '25',
+						'class' => '',
+						'id' => '',
+					),
+					'display_format' => 'F j, Y',
+					'return_format' => 'F j, Y',
+					'first_day' => 0,
+					'allow_in_bindings' => 0,
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+				array(
+					'key' => 'field_yak_session_description',
+					'label' => 'Session Description',
+					'name' => 'session_description',
+					'aria-label' => '',
+					'type' => 'text',
+					'instructions' => 'Optional. E.g., "Day 2: Workshops" or "Morning Session"',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '42',
+						'class' => '',
+						'id' => '',
+					),
+					'default_value' => '',
+					'maxlength' => '',
+					'placeholder' => '',
+					'prepend' => '',
+					'append' => '',
+					'allow_in_bindings' => 0,
+					'parent_repeater' => 'field_yak_event_sessions',
+				),
+			),
+		),
+		array(
 			'key' => 'field_6695707249b6a',
 			'label' => 'UNIX Timestamp - DO NOT EDIT',
 			'name' => 'event_unix_timestamp',
@@ -489,6 +755,46 @@ add_action( 'acf/include_fields', function() {
 
 
 ////
+
+/**
+ * Hide Unix Timestamp field from non-admin users
+ */
+add_filter('acf/prepare_field/key=field_6695707249b6a', 'yak_hide_timestamp_from_non_admins');
+function yak_hide_timestamp_from_non_admins( $field ) {
+	// Only show to administrators
+	if ( ! current_user_can('manage_options') ) {
+		return false;
+	}
+	return $field;
+}
+
+
+/**
+ * TODO: Complex Logic for Multi-Session Events Sorting
+ * 
+ * Currently, the unix timestamp is set based on the main event start date.
+ * For multi-session events, we need MORE COMPLEX logic:
+ * 
+ * - The timestamp should be the NEXT UPCOMING SESSION (not the first session)
+ * - If all sessions are past, use the last session end datetime
+ * - This ensures multi-session events sort correctly in "upcoming" lists
+ * 
+ * Example:
+ *   Event with 3 sessions:
+ *   - Session 1: Nov 1 (PAST)
+ *   - Session 2: Nov 8 (PAST)
+ *   - Session 3: Nov 15 (FUTURE) <- Use this timestamp
+ * 
+ *   Result: Event appears between Nov 10 and Nov 20 events in the list
+ * 
+ * This requires:
+ * 1. Loop through all sessions
+ * 2. Find the next future session from current time
+ * 3. Use that session's start datetime as the unix timestamp
+ * 4. If no future sessions, use last session end (for archive/past sorting)
+ * 
+ * TO BE IMPLEMENTED in next phase.
+ */
 
 // Update DHM Event unix timestamp on save
 add_action( 'acf/save_post', 'my_acf_save_post_update_dhm_event_unix_timestamp' );
@@ -769,6 +1075,52 @@ add_action( 'acf/include_fields', function() {
 
 
 
+/**
+ * Smart date formatter for events
+ * Handles all-day and timed events with intelligent date/time display
+ */
+function yak_format_event_date_range( $start, $end, $is_all_day = false ) {
+    if ( ! $start ) {
+        return '';
+    }
+    
+    if ( $is_all_day ) {
+        // All-day events: use date picker format (F j, Y)
+        if ( $start === $end || ! $end ) {
+            return $start;
+        }
+        return $start . ' – ' . $end;
+    }
+    
+    // Timed events: use datetime picker format (F j, Y g:i a)
+    if ( ! $end ) {
+        return $start;
+    }
+    
+    // Parse both dates
+    $start_obj = DateTime::createFromFormat( 'F j, Y g:i a', $start, wp_timezone() );
+    $end_obj = DateTime::createFromFormat( 'F j, Y g:i a', $end, wp_timezone() );
+    
+    if ( ! $start_obj || ! $end_obj ) {
+        // Fallback to original format if parsing fails
+        return $start . ' – ' . $end;
+    }
+    
+    // Same day: November 11, 2025 12:00 am – 3:00 am
+    if ( $start_obj->format('Y-m-d') === $end_obj->format('Y-m-d') ) {
+        return $start_obj->format('F j, Y g:i a') . ' – ' . $end_obj->format('g:i a');
+    }
+    
+    // Different days, same year: November 11, 2025 12:00 am – November 13, 3:00 am
+    if ( $start_obj->format('Y') === $end_obj->format('Y') ) {
+        return $start_obj->format('F j, Y g:i a') . ' – ' . $end_obj->format('F j, g:i a');
+    }
+    
+    // Different years: show both years fully
+    return $start_obj->format('F j, Y g:i a') . ' – ' . $end_obj->format('F j, Y g:i a');
+}
+
+
 // Helper function to format and return a single Event
 function clb_get_event( $post_id ) {
 
@@ -791,15 +1143,37 @@ function clb_get_event( $post_id ) {
 
     $title_to_publish = '<h3 class="single-event-title"><a href="' . $permalink . '">' . $title . '</a></h3>';
 
-    $event_start_date_time = get_field('event_start_date_time', $post_id);
-    $event_end_date_time = get_field('event_end_date_time', $post_id);
-
-    if( $event_start_date_time && $event_end_date_time ) { 
-        $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $event_start_date_time . ' – ' . $event_end_date_time . '</div>';
+    // Handle multi-session events with custom date description
+    $has_sessions = get_field('event_has_sessions', $post_id);
+    
+    if( $has_sessions ) {
+        $date_description = get_field('event_date_description', $post_id);
+        if( $date_description ) {
+            $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . esc_html($date_description) . '</div>';
+        }
+    } else {
+        // Handle both all-day and timed events with smart formatting
+        $event_all_day = get_field('event_all_day', $post_id);
+        
+        if( $event_all_day ) {
+            $event_start_date = get_field('event_start_date', $post_id);
+            $event_end_date = get_field('event_end_date', $post_id);
+            if( $event_start_date ) {
+                $formatted_date = yak_format_event_date_range( $event_start_date, $event_end_date, true );
+                $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $formatted_date . '</div>';
+            }
+        } else {
+            $event_start_date_time = get_field('event_start_date_time', $post_id);
+            $event_end_date_time = get_field('event_end_date_time', $post_id);
+            if( $event_start_date_time ) {
+                $formatted_date = yak_format_event_date_range( $event_start_date_time, $event_end_date_time, false );
+                $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Date:</strong> ' . $formatted_date . '</div>';
+            }
+        }
     }
 
     // event gathering mode: online or in-person
-    $gathering_mode = get_field('gathering_mode', $post_id);
+    $gathering_mode = get_field('event_gathering_mode', $post_id);
     $event_location = get_field('event_location', $post_id);
     if( $gathering_mode == 'online' ) {
         $event_metabox .= '<div class="clb-event-info-item-wrapper"><strong>Location:</strong> Online Via Zoom</div>';
@@ -849,16 +1223,37 @@ function clb_enqueue_calendar_plugin_js_functionality_121() {
    
     foreach( $event_ids as $post_id ) {
 
+        // Get event sessions for multi-session events
+        $sessions = get_field('event_sessions', $post_id);
+        $sessions_array = array();
+        
+        if( $sessions && is_array($sessions) ) {
+            foreach( $sessions as $session ) {
+                $sessions_array[] = array(
+                    'session_all_day' => $session['session_all_day'] ?? false,
+                    'session_start_datetime' => $session['session_start_datetime'] ?? '',
+                    'session_end_datetime' => $session['session_end_datetime'] ?? '',
+                    'session_start_date' => $session['session_start_date'] ?? '',
+                    'session_end_date' => $session['session_end_date'] ?? '',
+                    'session_description' => $session['session_description'] ?? '',
+                );
+            }
+        }
+
         $dhmEventsArray[] = array(
             'id' => $post_id,
             'title' => get_the_title( $post_id ),
             'permalink'   => get_the_permalink( $post_id ),
+            'event_has_sessions' => get_field('event_has_sessions', $post_id),
+            'event_all_day' => get_field('event_all_day', $post_id),
             'event_start_date_time' => get_field('event_start_date_time', $post_id),
             'event_end_date_time' => get_field('event_end_date_time', $post_id),
-            'event_time_zone' => get_field('event_time_zone', $post_id),
-            'gathering_mode' => get_field('gathering_mode', $post_id),
+            'event_start_date' => get_field('event_start_date', $post_id),
+            'event_end_date' => get_field('event_end_date', $post_id),
+            'event_gathering_mode' => get_field('event_gathering_mode', $post_id),
             'event_location' => get_field('event_location', $post_id),
-            'clb_dhm_event_unix_timestamp' => intval(get_field('clb_dhm_event_unix_timestamp', $post_id)),
+            'event_unix_timestamp' => intval(get_field('event_unix_timestamp', $post_id)),
+            'event_sessions' => $sessions_array,
        );
        
     }
@@ -867,10 +1262,206 @@ function clb_enqueue_calendar_plugin_js_functionality_121() {
     wp_enqueue_script( 'clb-events-plugin-global-js', plugin_dir_url( __FILE__ ) . 'js/clb-events-plugin-global-js.js', array( 'jquery' ), '1.0.0', true );
     wp_localize_script( 'clb-events-plugin-global-js', 'dhmEvents', $dhmEventsArray );
 
+    // enqueue calendar view JS
+    wp_enqueue_script( 'clb-events-calendar-view-js', plugin_dir_url( __FILE__ ) . 'blocks/events_calendar/js/clb-events-calendar-view.js', array( 'jquery' ), '1.0.0', true );
+
     // return '<div id="dhm-events-root" class="clb-dhm-events-root"></div>';
 
 }
 
+
+
+/**
+ * TEMPORARY: Debug/Reporting Page for Events Metadata
+ * Can be accessed via shortcode [yak_events_debug] or via admin menu
+ */
+
+// Add admin menu page
+add_action('admin_menu', 'yak_events_debug_menu');
+function yak_events_debug_menu() {
+    add_submenu_page(
+        'edit.php?post_type=events',
+        'Events Debug Report',
+        'Debug Report',
+        'manage_options',
+        'yak-events-debug',
+        'yak_events_debug_page'
+    );
+}
+
+// Admin page callback
+function yak_events_debug_page() {
+    echo '<div class="wrap">';
+    echo '<h1>Events Debug Report</h1>';
+    echo '<p><em>This is a temporary debugging page to verify event metadata handling.</em></p>';
+    echo yak_events_debug_output();
+    echo '</div>';
+}
+
+// Shortcode for front-end access
+add_shortcode('yak_events_debug', 'yak_events_debug_shortcode');
+function yak_events_debug_shortcode($atts) {
+    if (!current_user_can('manage_options')) {
+        return '<p>You do not have permission to view this page.</p>';
+    }
+    return yak_events_debug_output();
+}
+
+// Core debug output function
+function yak_events_debug_output() {
+    $args = array(
+        'numberposts' => -1,
+        'post_type'   => 'events',
+        'meta_key'    => 'event_unix_timestamp',
+        'order'       => 'ASC',
+        'orderby'     => 'meta_value_num',
+        'post_status' => 'publish'
+    );
+    
+    $events = get_posts($args);
+    
+    if (empty($events)) {
+        return '<p>No events found.</p>';
+    }
+    
+    ob_start();
+    ?>
+    <style>
+        .yak-debug-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .yak-debug-table th, .yak-debug-table td { padding: 12px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
+        .yak-debug-table th { background-color: #0073aa; color: white; font-weight: bold; }
+        .yak-debug-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .yak-debug-table tr:hover { background-color: #f0f0f0; }
+        .yak-debug-meta-list { margin: 0; padding: 0; list-style: none; font-size: 12px; }
+        .yak-debug-meta-list li { margin: 4px 0; }
+        .yak-debug-meta-list strong { display: inline-block; width: 180px; }
+        .yak-debug-true { color: green; font-weight: bold; }
+        .yak-debug-false { color: #999; }
+        .yak-debug-past { background-color: #ffebee; }
+        .yak-debug-future { background-color: #e8f5e9; }
+        .yak-debug-featured { border-left: 4px solid #ff9800; }
+    </style>
+    
+    <table class="yak-debug-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Event Title</th>
+                <th>Date/Time Info</th>
+                <th>Location & Details</th>
+                <th>Metadata</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($events as $event) : 
+            $post_id = $event->ID;
+            $now = time();
+            
+            // Get all fields
+            $all_day = get_field('event_all_day', $post_id);
+            $start_datetime = get_field('event_start_date_time', $post_id);
+            $end_datetime = get_field('event_end_date_time', $post_id);
+            $start_date = get_field('event_start_date', $post_id);
+            $end_date = get_field('event_end_date', $post_id);
+            $unix_timestamp = (int) get_field('event_unix_timestamp', $post_id);
+            $is_featured = get_field('is_featured_event', $post_id);
+            $gathering_mode = get_field('event_gathering_mode', $post_id);
+            $location = get_field('event_location', $post_id);
+            $organizer = get_field('event_organizer', $post_id);
+            $action_btn = get_field('event_action_button', $post_id);
+            
+            // Determine if past/future
+            $is_past = $unix_timestamp < $now;
+            $row_class = $is_past ? 'yak-debug-past' : 'yak-debug-future';
+            if ($is_featured) {
+                $row_class .= ' yak-debug-featured';
+            }
+            
+            // Get categories
+            $categories = get_the_terms($post_id, 'event_categories');
+            $cat_names = $categories ? implode(', ', wp_list_pluck($categories, 'name')) : 'None';
+            ?>
+            <tr class="<?php echo esc_attr($row_class); ?>">
+                <td><strong><?php echo $post_id; ?></strong></td>
+                <td>
+                    <strong><?php echo get_the_title($post_id); ?></strong><br>
+                    <small><a href="<?php echo get_permalink($post_id); ?>" target="_blank">View</a> | 
+                    <a href="<?php echo get_edit_post_link($post_id); ?>" target="_blank">Edit</a></small>
+                </td>
+                <td>
+                    <ul class="yak-debug-meta-list">
+                        <li><strong>All Day:</strong> 
+                            <span class="<?php echo $all_day ? 'yak-debug-true' : 'yak-debug-false'; ?>">
+                                <?php echo $all_day ? 'YES' : 'NO'; ?>
+                            </span>
+                        </li>
+                        <?php if ($all_day) : ?>
+                            <li><strong>Start Date:</strong> <?php echo $start_date ? $start_date : '<em>not set</em>'; ?></li>
+                            <li><strong>End Date:</strong> <?php echo $end_date ? $end_date : '<em>not set</em>'; ?></li>
+                        <?php else : ?>
+                            <li><strong>Start DateTime:</strong> <?php echo $start_datetime ? $start_datetime : '<em>not set</em>'; ?></li>
+                            <li><strong>End DateTime:</strong> <?php echo $end_datetime ? $end_datetime : '<em>not set</em>'; ?></li>
+                        <?php endif; ?>
+                        <li><strong>Unix Timestamp:</strong> <?php echo $unix_timestamp ? $unix_timestamp : '<em>0</em>'; ?></li>
+                        <?php if ($unix_timestamp) : ?>
+                            <li><strong>Timestamp Date:</strong> <?php echo date('Y-m-d H:i:s', $unix_timestamp); ?></li>
+                        <?php endif; ?>
+                    </ul>
+                </td>
+                <td>
+                    <ul class="yak-debug-meta-list">
+                        <li><strong>Gathering Mode:</strong> <?php echo $gathering_mode ? ucfirst($gathering_mode) : '<em>not set</em>'; ?></li>
+                        <li><strong>Location:</strong> <?php echo $location ? nl2br(esc_html($location)) : '<em>not set</em>'; ?></li>
+                        <li><strong>Organizer:</strong> <?php echo $organizer ? esc_html($organizer) : '<em>not set</em>'; ?></li>
+                        <?php 
+                        $sessions = get_field('event_sessions', $post_id);
+                        if( $sessions && is_array($sessions) ) : ?>
+                            <li><strong>Sessions:</strong> <?php echo count($sessions); ?> session(s)</li>
+                        <?php endif; ?>
+                    </ul>
+                </td>
+                <td>
+                    <ul class="yak-debug-meta-list">
+                        <li><strong>Featured:</strong> 
+                            <span class="<?php echo $is_featured ? 'yak-debug-true' : 'yak-debug-false'; ?>">
+                                <?php echo $is_featured ? 'YES' : 'NO'; ?>
+                            </span>
+                        </li>
+                        <li><strong>Categories:</strong> <?php echo $cat_names; ?></li>
+                        <li><strong>Button Text:</strong> <?php echo $action_btn['button_text'] ?? '<em>not set</em>'; ?></li>
+                        <li><strong>Button URL:</strong> 
+                            <?php if (!empty($action_btn['button_link_url'])) : ?>
+                                <a href="<?php echo esc_url($action_btn['button_link_url']); ?>" target="_blank">Link</a>
+                            <?php else : ?>
+                                <em>not set</em>
+                            <?php endif; ?>
+                        </li>
+                    </ul>
+                </td>
+                <td>
+                    <strong><?php echo $is_past ? '🔴 PAST' : '🟢 UPCOMING'; ?></strong><br>
+                    <?php if ($is_featured) : ?>
+                        <span style="color: #ff9800;">⭐ FEATURED</span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 30px; padding: 20px; background: #f0f0f0; border-radius: 4px;">
+        <h3>Legend:</h3>
+        <ul>
+            <li><span style="background: #e8f5e9; padding: 4px 8px;">Green background</span> = Upcoming event</li>
+            <li><span style="background: #ffebee; padding: 4px 8px;">Red background</span> = Past event</li>
+            <li><span style="border-left: 4px solid #ff9800; padding: 4px 8px;">Orange left border</span> = Featured event</li>
+            <li><strong>Total Events:</strong> <?php echo count($events); ?></li>
+        </ul>
+    </div>
+    <?php
+    return ob_get_clean();
+}
 
 
 /**
